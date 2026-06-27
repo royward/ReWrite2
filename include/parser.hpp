@@ -20,12 +20,13 @@ inline constexpr uint32_t TYPE_LIST = 2;
 
 struct Parameter;  // forward declaration
 
-struct ParamId { uint32_t value; };
+struct Id { uint32_t value; };
+struct Const { uint16_t width; int64_t value; };
+
 struct ParamSplat { std::unique_ptr<Parameter> inner; };
-struct ParamConst { uint16_t width; int64_t value; };
 struct ParamList { std::vector<Parameter> items; };
 
-using ParameterVariant = std::variant<ParamId, ParamSplat, ParamConst, ParamList>;
+using ParameterVariant = std::variant<Id, ParamSplat, Const, ParamList>;
 
 struct Parameter {
     ParameterVariant value;
@@ -33,17 +34,13 @@ struct Parameter {
 
 struct Expression; // forward declaration
 
-struct ExprId { uint32_t value; };
 struct ExprSplat { std::unique_ptr<Expression> inner; };
-struct ExprConst { uint16_t width; int64_t value; };
 struct ExprList { std::vector<Expression> items; };
 struct Call { uint32_t func_id; std::vector<Expression> args; };
 struct CallInternal { uint32_t func_id; std::vector<Expression> args; };
 struct Never {};
 
-using ExpressionVariant = std::variant <
-    ExprId, ExprSplat, ExprConst, ExprList, Call, CallInternal, Never
->;
+using ExpressionVariant = std::variant <Id, ExprSplat, Const, ExprList, Call, CallInternal, Never>;
 
 struct Expression {
     ExpressionVariant value;

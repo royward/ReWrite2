@@ -70,12 +70,12 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
     Token t=parser.current();
     parser.advance();
     switch(t.kind) {
-        case UnsignedInteger : return Parameter{ParamConst{TYPE_I64,token_to_int(t)}};
+        case UnsignedInteger : return Parameter{Const{TYPE_I64,token_to_int(t)}};
         case Minus : {
             Token t2=parser.current();
             parser.advance();
             if(t2.kind==UnsignedInteger) {
-                return Parameter{ParamConst{TYPE_I64,-token_to_int(t2)}};
+                return Parameter{Const{TYPE_I64,-token_to_int(t2)}};
             } else {
                 parse_error(t2,{"integer"});
             } break;
@@ -84,7 +84,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
             std::string s=static_cast<std::string>(t.text);
             param_id_map.try_emplace(s,param_id_map.size());
             uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-            return Parameter{ParamId{id}};
+            return Parameter{Id{id}};
         }
         case Splat: {
             Token t2=parser.current();
@@ -93,7 +93,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
                 std::string s=static_cast<std::string>(t2.text);
                 param_id_map.try_emplace(s,param_id_map.size());
                 uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-                return Parameter{ParamSplat{std::make_unique<Parameter>(Parameter{ParamId{id}})}};
+                return Parameter{ParamSplat{std::make_unique<Parameter>(Parameter{Id{id}})}};
             } else {
                 parse_error(t2,{"identifier"});
             } break;
@@ -105,7 +105,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
         default : parse_error(t,{"parameter"});
     }
     // never gets to here, but g++ doesn't know that
-    return Parameter{ParamConst{TYPE_I64,0}};
+    return Parameter{Const{TYPE_I64,0}};
 }
 
 std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep) {
@@ -161,7 +161,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
     if(t.kind==Minus && parser.current().kind==UnsignedInteger) {
         Token t2=parser.current();
         parser.advance();
-        expr=Expression{ExprConst{TYPE_I64,-token_to_int(t2)}};
+        expr=Expression{Const{TYPE_I64,-token_to_int(t2)}};
     } else if(prefix_id!=OP_NO_MATCH) {
         Expression expr2=parse_expression(parser,param_id_map,program,prefix_pri);
         std::vector<Expression> expr_list;
@@ -169,7 +169,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
         expr=Expression{CallInternal{prefix_id,std::move(expr_list)}};
     } else {
         switch(t.kind) {
-            case UnsignedInteger : expr=Expression{ExprConst{TYPE_I64,token_to_int(t)}}; break;
+            case UnsignedInteger : expr=Expression{Const{TYPE_I64,token_to_int(t)}}; break;
             case Identifier : {
                 if(parser.current().kind==LParen) {
                     parser.advance();
@@ -182,7 +182,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
                     std::string s=static_cast<std::string>(t.text);
                     param_id_map.try_emplace(s,param_id_map.size()); // TODO make that an error to call use unbound identifier, but have do deal with _ first
                     uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-                    expr=Expression{ExprId{id}};
+                    expr=Expression{Id{id}};
                 }
             } break;
             case Splat: {
@@ -192,7 +192,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
                     std::string s=static_cast<std::string>(t2.text);
                     param_id_map.try_emplace(s,param_id_map.size()); // TODO make that an error to call use unbound identifier, but have do deal with _ first
                     uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-                    expr=Expression{ExprSplat{std::make_unique<Expression>(Expression{ExprId{id}})}};
+                    expr=Expression{ExprSplat{std::make_unique<Expression>(Expression{Id{id}})}};
                 } else {
                     parse_error(t2,{"identifier"});
                 };
@@ -285,7 +285,6 @@ void parse_rule(Parser& parser, Program& program) {
     } else {
         parse_error(parser.current(),{"identifier"});
     }
-
 }
 
 Program do_parse(std::string_view program_string) {
