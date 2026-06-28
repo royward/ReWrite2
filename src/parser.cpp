@@ -70,12 +70,12 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
     Token t=parser.current();
     parser.advance();
     switch(t.kind) {
-        case UnsignedInteger : return Parameter{Const{TYPE_I64,token_to_int(t)}};
+        case UnsignedInteger : return Parameter{Const{DataElement{DataInt{token_to_int(t)}}}};
         case Minus : {
             Token t2=parser.current();
             parser.advance();
             if(t2.kind==UnsignedInteger) {
-                return Parameter{Const{TYPE_I64,-token_to_int(t2)}};
+                return Parameter{Const{DataElement{DataInt{-token_to_int(t)}}}};
             } else {
                 parse_error(t2,{"integer"});
             } break;
@@ -105,7 +105,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
         default : parse_error(t,{"parameter"});
     }
     // never gets to here, but g++ doesn't know that
-    return Parameter{Const{TYPE_I64,0}};
+    return Parameter{Const{DataElement{DataUnbound{}}}};
 }
 
 std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep) {
@@ -161,7 +161,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
     if(t.kind==Minus && parser.current().kind==UnsignedInteger) {
         Token t2=parser.current();
         parser.advance();
-        expr=Expression{Const{TYPE_I64,-token_to_int(t2)}};
+        expr=Expression{Const{DataElement{DataInt{-token_to_int(t2)}}}};
     } else if(prefix_id!=OP_NO_MATCH) {
         Expression expr2=parse_expression(parser,param_id_map,program,prefix_pri);
         std::vector<Expression> expr_list;
@@ -169,7 +169,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
         expr=Expression{CallInternal{prefix_id,std::move(expr_list)}};
     } else {
         switch(t.kind) {
-            case UnsignedInteger : expr=Expression{Const{TYPE_I64,token_to_int(t)}}; break;
+            case UnsignedInteger : expr=Expression{Const{DataElement{DataInt{-token_to_int(t)}}}}; break;
             case Identifier : {
                 if(parser.current().kind==LParen) {
                     parser.advance();

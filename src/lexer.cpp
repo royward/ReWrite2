@@ -2,32 +2,6 @@
 #include <format>
 #include "lexer.hpp"
 
-// enum TokenKind {
-//     True,
-//     False,
-//     Identifier,
-//     UnsignedInteger,
-//     LParen,
-//     RParen,
-//     LBracket,
-//     RBracket,
-//     LBrace,
-//     RBrace,
-//     Comma,
-//     Arrow,
-//     Semicolon,
-//     Guard,
-//     Splat,
-//     GreedySplat,
-//     Dot,
-//     Colon,
-//     Plus,
-//     Minus,
-//     Times,
-//     Divide,
-//     EqualsEquals,
-// };
-
 std::vector<Token> lex(std::string_view program) {
     std::vector<Token> result;
     std::size_t p=0;
@@ -60,6 +34,9 @@ std::vector<Token> lex(std::string_view program) {
                 case ')':token_kind=RParen; break;
                 case ';':token_kind=Semicolon; break;
                 case '*':token_kind=Times; break;
+                case '+':token_kind=Plus; break;
+                case '/':token_kind=Divide; break;
+                case '%':token_kind=Modulus; break;
                 case '-': {
                     if(p<len && program[p]=='>') {
                         p++;

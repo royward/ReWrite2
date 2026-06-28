@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <vector>
 #include <string>
@@ -27,6 +29,7 @@ enum TokenKind {
     Minus,
     Times,
     Divide,
+    Modulus,
     EqualsEquals,
     Eof,
 };

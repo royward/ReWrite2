@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "execute.hpp"
 #include <CLI/CLI.hpp>
 #include <fstream>
 #include <string>

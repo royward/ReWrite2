@@ -20,6 +20,7 @@ add_executable(rewrite_cpp
     src/main.cpp
     src/lexer.cpp
     src/parser.cpp
+    src/execute.cpp
 )
 
 target_include_directories(rewrite_cpp PRIVATE include)
