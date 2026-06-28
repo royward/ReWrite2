@@ -1,6 +1,6 @@
-#include "lexer.hpp"
-#include "parser.hpp"
-#include "execute.hpp"
+//#include "lexer.hpp"
+//#include "parser.hpp"
+#include "program.hpp"
 #include <CLI/CLI.hpp>
 #include <fstream>
 #include <string>
@@ -9,8 +9,8 @@
 #include <format>
 #include <print>
 
-Program do_parse(std::string_view program_string);
-std::vector<DataElement> run(const Program& prog, std::string& fn, std::vector<DataElement>& args);
+//Program do_parse(std::string_view program_string);
+//std::vector<DataElement> run(const Program& prog, std::string& fn, std::vector<DataElement>& args);
 
 std::string load_file(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::in | std::ios::binary);
@@ -35,11 +35,11 @@ int main(int argc, char** argv) {
         //for (const auto& token : tokens) {
         //    std::println("{}", token);
         //}
-        Program prog=do_parse(s);
+        Program prog(s);
         std::vector<DataElement> inputs;
         inputs.push_back(DataElement{DataInt{10}});
         std::string fn="fact";
-        std::vector<DataElement> results=run(prog,fn,inputs);
+        std::vector<DataElement> results=prog.run(fn,inputs);
         //for (const auto& i : results) {
         //    std::print("{},", i);
         //}

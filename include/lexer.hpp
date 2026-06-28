@@ -1,38 +1,11 @@
 #pragma once
 
+#include "token_kind.hpp"
 #include <string>
 #include <vector>
 #include <string>
 #include <cstdint>
 #include <format>
-
-enum TokenKind {
-    True,
-    False,
-    Identifier,
-    UnsignedInteger,
-    LParen,
-    RParen,
-    LBracket,
-    RBracket,
-    LBrace,
-    RBrace,
-    Comma,
-    Arrow,
-    Semicolon,
-    Guard,
-    Splat,
-    GreedySplat,
-    Dot,
-    Colon,
-    Plus,
-    Minus,
-    Times,
-    Divide,
-    Modulus,
-    EqualsEquals,
-    Eof,
-};
 
 struct Token {
     TokenKind kind;

@@ -1,22 +1,9 @@
 #include "lexer.hpp"
+#include "program.hpp"
 #include "parser.hpp"
 #include <print>
 #include <ranges>
 #include <charconv>
-
-struct Parser {
-    std::vector<Token> tokens;
-    std::size_t pos = 0;
-
-    const Token& current() const { return tokens[pos]; }
-    const Token& peek() const {
-        // Eof is always the last token; once current() is Eof, peeking
-        // again just returns Eof again rather than reading out of bounds.
-        return pos + 1 < tokens.size() ? tokens[pos + 1] : tokens.back();
-    }
-    void advance() { pos++; }
-    bool eof() { return tokens[pos].kind==Eof; }
-};
 
 void parse_error(const Token& token, std::vector<std::string_view> expected) {
     std::string message;
@@ -64,9 +51,9 @@ int64_t token_to_int(Token& token) {
     return value;
 }
 
-std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep);
+std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, TokenKind end, TokenKind sep);
 
-Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program) {
+Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map) {
     Token t=parser.current();
     parser.advance();
     switch(t.kind) {
@@ -99,7 +86,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
             } break;
         }
         case LBrace: {
-            std::vector<Parameter> list_internal=parse_param_list(parser, param_id_map, program, RBrace, Comma);
+            std::vector<Parameter> list_internal=parse_param_list(parser, param_id_map, RBrace, Comma);
             return Parameter{ParamList{std::move(list_internal)}};
         }
         default : parse_error(t,{"parameter"});
@@ -108,7 +95,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
     return Parameter{Const{DataElement{DataUnbound{}}}};
 }
 
-std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep) {
+std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, TokenKind end, TokenKind sep) {
     std::vector<Parameter> param_list;
     if(parser.current().kind==end) {
         parser.advance();
@@ -121,7 +108,7 @@ std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::
                 parser.advance();
                 return param_list; // deal with trailing comma case
             } else {
-                param_list.push_back(parse_param(parser,param_id_map,program));
+                param_list.push_back(parse_param(parser,param_id_map));
                 separator_or_end=parser.current().kind;
                 if(separator_or_end!=sep && separator_or_end!=end) {
                     parse_error(parser.current(),{token_kind_to_string(sep),token_kind_to_string(end)});
@@ -151,9 +138,9 @@ std::tuple<uint8_t, uint8_t, uint32_t> infix_binding_power(TokenKind op) {
     }
 }
 
-std::vector<Expression> parse_expression_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep);
+//std::vector<Expression> parse_expression_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep);
 
-Expression parse_expression(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, uint8_t pri) {
+Expression Program::parse_expression(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, uint8_t pri) {
     Token t=parser.current();
     parser.advance();
     Expression expr;
@@ -163,7 +150,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
         parser.advance();
         expr=Expression{Const{DataElement{DataInt{-token_to_int(t2)}}}};
     } else if(prefix_id!=OP_NO_MATCH) {
-        Expression expr2=parse_expression(parser,param_id_map,program,prefix_pri);
+        Expression expr2=parse_expression(parser,param_id_map,prefix_pri);
         std::vector<Expression> expr_list;
         expr_list.push_back(std::move(expr2));
         expr=Expression{CallInternal{prefix_id,std::move(expr_list)}};
@@ -174,9 +161,9 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
                 if(parser.current().kind==LParen) {
                     parser.advance();
                     std::string s=static_cast<std::string>(t.text);
-                    program.function_map.try_emplace(s,program.function_map.size()); // allow insert, because might be forward call
-                    uint32_t id=static_cast<uint32_t>(program.function_map[s]);
-                    std::vector<Expression> expr_list=parse_expression_list(parser, param_id_map, program, RParen, Comma);
+                    function_map.try_emplace(s,function_map.size()); // allow insert, because might be forward call
+                    uint32_t id=static_cast<uint32_t>(function_map[s]);
+                    std::vector<Expression> expr_list=parse_expression_list(parser, param_id_map, RParen, Comma);
                     expr=Expression{Call{id,std::move(expr_list)}};
                 } else {
                     std::string s=static_cast<std::string>(t.text);
@@ -198,11 +185,11 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
                 };
             } break;
             case LBrace: {
-                std::vector<Expression> list_internal=parse_expression_list(parser, param_id_map, program, RBrace, Comma);
+                std::vector<Expression> list_internal=parse_expression_list(parser, param_id_map, RBrace, Comma);
                 expr=Expression{ExprList{std::move(list_internal)}};
             } break;
             case LParen: {
-                expr=parse_expression(parser, param_id_map, program,0);
+                expr=parse_expression(parser, param_id_map,0);
                 if(parser.current().kind!=RParen) {
                     parse_error(parser.current(),{")"});
                 }
@@ -218,7 +205,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
             break;
         }
         parser.advance();
-        Expression expr2=parse_expression(parser, param_id_map, program, prefix_pri_right);
+        Expression expr2=parse_expression(parser, param_id_map, prefix_pri_right);
         std::vector<Expression> expr_list;
         expr_list.push_back(std::move(expr));
         expr_list.push_back(std::move(expr2));
@@ -227,7 +214,7 @@ Expression parse_expression(Parser& parser, std::unordered_map<std::string, std:
     return expr;
 }
 
-std::vector<Expression> parse_expression_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, Program& program, TokenKind end, TokenKind sep) {
+std::vector<Expression> Program::parse_expression_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, TokenKind end, TokenKind sep) {
     std::vector<Expression> expr_list;
     if(parser.current().kind==end) {
         parser.advance();
@@ -240,7 +227,7 @@ std::vector<Expression> parse_expression_list(Parser& parser, std::unordered_map
                 parser.advance();
                 return expr_list; // deal with trailing comma case
             } else {
-                expr_list.push_back(parse_expression(parser,param_id_map,program,0));
+                expr_list.push_back(parse_expression(parser,param_id_map,0));
                 separator_or_end=parser.current().kind;
                 if(separator_or_end!=sep && separator_or_end!=end) {
                     parse_error(parser.current(),{token_kind_to_string(sep),token_kind_to_string(end)});
@@ -252,7 +239,7 @@ std::vector<Expression> parse_expression_list(Parser& parser, std::unordered_map
     return expr_list;
 }
 
-void parse_rule(Parser& parser, Program& program) {
+void Program::parse_rule(Parser& parser) {
     if(parser.current().kind==Identifier) {
         std::string function=static_cast<std::string>(parser.current().text);
         parser.advance();
@@ -260,10 +247,10 @@ void parse_rule(Parser& parser, Program& program) {
             Rule rule;
             parser.advance();
             std::unordered_map<std::string, std::size_t> param_id_map;
-            rule.left=parse_param_list(parser,param_id_map,program,RParen,Comma);
+            rule.left=parse_param_list(parser,param_id_map,RParen,Comma);
             if(parser.current().kind==Guard) {
                 parser.advance();
-                rule.guard=parse_expression(parser,param_id_map,program,0);
+                rule.guard=parse_expression(parser,param_id_map,0);
             } else {
                 rule.guard=std::nullopt;
             }
@@ -271,14 +258,14 @@ void parse_rule(Parser& parser, Program& program) {
                 parse_error(parser.current(),{"->"});
             }
             parser.advance();
-            rule.right=parse_expression_list(parser,param_id_map,program,Semicolon,Comma);
+            rule.right=parse_expression_list(parser,param_id_map,Semicolon,Comma);
             rule.names=indices_to_names(param_id_map);
-            program.function_map.try_emplace(function,program.function_map.size());
-            size_t function_id=program.function_map[function];
-            if(function_id>=program.program.size()) {
-                program.program.resize(function_id+1);
+            function_map.try_emplace(function,function_map.size());
+            size_t function_id=function_map[function];
+            if(function_id>=program.size()) {
+                program.resize(function_id+1);
             }
-            program.program[function_id].push_back(std::move(rule));
+            program[function_id].push_back(std::move(rule));
         } else {
             parse_error(parser.current(),{"("});
         }
@@ -287,13 +274,13 @@ void parse_rule(Parser& parser, Program& program) {
     }
 }
 
-Program do_parse(std::string_view program_string) {
-    Program program;
-    Parser parser;
-    parser.tokens=lex(program_string);
-    while(!parser.eof()) {
-        parse_rule(parser,program);
-    }
-    program.function_names=indices_to_names(program.function_map);
-    return program;
-}
+// Program do_parse(std::string_view program_string) {
+//     Program program;
+//     Parser parser;
+//     parser.tokens=lex(program_string);
+//     while(!parser.eof()) {
+//         parse_rule(parser,program);
+//     }
+//     program.function_names=indices_to_names(program.function_map);
+//     return program;
+// }
