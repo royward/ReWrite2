@@ -1,6 +1,7 @@
 #include "lexer.hpp"
 #include "program.hpp"
 #include "parser.hpp"
+#include "util.hpp"
 #include <print>
 #include <ranges>
 #include <charconv>
@@ -16,14 +17,6 @@ void parse_error(const Token& token, std::vector<std::string_view> expected) {
         }
     }
     throw std::runtime_error(message);
-}
-
-std::vector<std::string> indices_to_names(const std::unordered_map<std::string, std::size_t>& name_to_index) {
-    std::vector<std::string> result(name_to_index.size());
-    for (const auto& [name, index] : name_to_index) {
-        result[index] = name;
-    }
-    return result;
 }
 
 std::string token_kind_to_string(TokenKind& t) {

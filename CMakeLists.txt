@@ -21,6 +21,7 @@ add_executable(rewrite_cpp
     src/parser.cpp
     src/program.cpp
     src/main.cpp
+    src/util.cpp
 )
 
 target_include_directories(rewrite_cpp PRIVATE include)
