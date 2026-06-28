@@ -1,12 +1,11 @@
 #include "program.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "util.hpp"
 #include <stdexcept>
 #include <print>
 #include <ranges>
 #include <string>
-
-std::vector<std::string> indices_to_names(const std::unordered_map<std::string, std::size_t>& name_to_index);
 
 Program::Program(std::string_view source) {
     Parser parser;

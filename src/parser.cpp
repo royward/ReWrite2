@@ -267,13 +267,3 @@ void Program::parse_rule(Parser& parser) {
     }
 }
 
-// Program do_parse(std::string_view program_string) {
-//     Program program;
-//     Parser parser;
-//     parser.tokens=lex(program_string);
-//     while(!parser.eof()) {
-//         parse_rule(parser,program);
-//     }
-//     program.function_names=indices_to_names(program.function_map);
-//     return program;
-// }
