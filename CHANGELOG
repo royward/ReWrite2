@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [0.0.1] - 2026-07-01 — Initial release
+
+### Added
+- Types: integer, boolean, list
+- Pattern matching with guards
+- List construction and splat operators
+- Tail-call elimination
+- Built-in arithmetic, logical, bitwise, and shift operators
+- `count_trailing_zeros` operator
+- CLI interface for running ReWrite programs
+- Example programs: factorial, listn, nprime, nqueens (two versions)
