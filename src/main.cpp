@@ -26,18 +26,19 @@ std::string load_file(const std::filesystem::path& path) {
 int main(int argc, char** argv) {
     CLI::App app{"ReWrite Stage 1 interpreter"};
     std::string filename;
-    std::string callname;
+    std::string callexpr;
     app.add_option("file", filename, "Source file to interpret")->required();
-    app.add_option("call", callname, "Funtion to run")->required();
+    app.add_option("call", callexpr, "Expression to evaluate")->required();
     CLI11_PARSE(app, argc, argv);
     try {
         std::string s=load_file(filename);
         std::println("{}",s);
         Program prog(s);
-        std::vector<DataElement> inputs;
-        inputs.push_back(DataElement{DataInt{10}});
-        std::vector<DataElement> results=prog.run(callname,inputs);
-        std::println("");
+        std::vector<DataElement> results=prog.run_string(callexpr);
+        std::println("Results:");
+        for(auto& r : results) {
+            println("{}",r.to_string());
+        }
     } catch(const std::runtime_error& e) {
         std::println("Error: {}", e.what());
     }

@@ -23,6 +23,7 @@ add_executable(rewrite_cpp
     src/program_call_internal.cpp
     src/main.cpp
     src/util.cpp
+    src/data_element.cpp
 )
 
 target_include_directories(rewrite_cpp PRIVATE include)

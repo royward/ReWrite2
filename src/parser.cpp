@@ -51,6 +51,8 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
     parser.advance();
     switch(t.kind) {
         case UnsignedInteger : return Parameter{Const{DataElement{DataInt{token_to_int(t)}}}};
+        case True : return Parameter{Const{DataElement{DataBool{true}}}};
+        case False : return Parameter{Const{DataElement{DataBool{false}}}};
         case Minus : {
             Token t2=parser.current();
             parser.advance();
@@ -77,8 +79,10 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
                 param_id_map.try_emplace(s,param_id_map.size());
                 uint32_t id=static_cast<uint32_t>(param_id_map[s]);
                 return Parameter{ParamSplat{id}};
+            } else if(t2.kind==Wildcard) {
+                return Parameter{ParamSplatWild{}};
             } else {
-                parse_error(t2,{"identifier"});
+                parse_error(t2,{"identifier","_"});
             } break;
         }
         case LBrace: {
@@ -106,7 +110,7 @@ std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::
                 return param_list; // deal with trailing comma case
             } else {
                 Parameter p2=parse_param(parser,param_id_map);
-                if(std::holds_alternative<ParamSplat>(p2.value)) {
+                if(std::holds_alternative<ParamSplat>(p2.value) || std::holds_alternative<ParamSplatWild>(p2.value)) {
                     splat_count++;
                     if(splat_count>1) {
                         throw std::runtime_error("only one splat per list");
@@ -185,6 +189,8 @@ Expression Program::parse_expression(Parser& parser, std::unordered_map<std::str
     } else {
         switch(t.kind) {
             case UnsignedInteger : expr=Expression{Const{DataElement{DataInt{token_to_int(t)}}}}; break;
+            case True : return Expression{Const{DataElement{DataBool{true}}}};
+            case False : return Expression{Const{DataElement{DataBool{false}}}};
             case Identifier : {
                 if(parser.current().kind==LParen) {
                     parser.advance();

@@ -12,9 +12,9 @@ DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args)
 Program::Program(std::string_view source) {
     Parser parser;
     parser.tokens=lex(source);
-    for(auto t:parser.tokens) {
-        std::println("{}",t);
-    }
+    // for(auto t:parser.tokens) {
+    //     std::println("{}",t.to_string());
+    // }
     while(!parser.eof()) {
         parse_rule(parser);
     }
@@ -71,6 +71,9 @@ bool do_match_single(const Parameter& parameter, const DataElement& x, std::vect
         } else if constexpr (std::is_same_v<T, ParamSplat>) {
             throw std::runtime_error("internal error: do_match_single should not be matched with splat");
             return false; // make compiler happy
+        } else if constexpr (std::is_same_v<T, ParamSplatWild>) {
+            throw std::runtime_error("internal error: do_match_single should not be matched with splat");
+            return false; // make compiler happy
         } else if constexpr (std::is_same_v<T, Const>) {
             return compare_equal(x,alt.value);
         } else if constexpr (std::is_same_v<T, ParamList>) {
@@ -94,7 +97,7 @@ bool do_match_vec(const std::vector<Parameter>& parameters, const std::vector<Da
             if(plen>vlen+1) {
                 throw std::runtime_error("failed to get value with '..': parameter list too short");
             }
-            // we get just enough stuff in the spat that the rest of the parameters will match up exactly
+            // we get just enough stuff in the splat that the rest of the parameters will match up exactly
             std::vector<DataElement> sub_vector(values.begin() + vi, values.begin() + vi + (vlen-plen+1));
             vi+=vlen-plen+1;
             DataElement x=DataElement{DataList(std::move(sub_vector))};
@@ -106,7 +109,13 @@ bool do_match_vec(const std::vector<Parameter>& parameters, const std::vector<Da
                     return false;
                 }
             }
-        } else {
+        } else if (std::holds_alternative<ParamSplatWild>(parameter.value)) {
+            if(plen>vlen+1) {
+                throw std::runtime_error("failed to get value with '..': parameter list too short");
+            }
+            // we get just enough stuff in the splat that the rest of the parameters will match up exactly
+            vi+=vlen-plen+1;
+         } else {
             if(vi>=vlen) {
                 return false; // ran out of parameters
             }
@@ -147,7 +156,7 @@ void Program::do_call_single(const Expression& expression, const std::vector<Dat
             for(const Expression& e:alt.args) {
                 do_call_single(e,bindings,args);
             }
-            do_call(alt.func_id,sofar,args);
+            do_call_function(alt.func_id,sofar,args);
         } else if constexpr (std::is_same_v<T, CallInternal>) {
             std::vector<DataElement> args;
             for(const Expression& e:alt.args) {
@@ -160,7 +169,7 @@ void Program::do_call_single(const Expression& expression, const std::vector<Dat
     }, expression.value);
 }
 
-void Program::do_call(uint32_t op, std::vector<DataElement>& sofar, std::vector<DataElement> args) const {
+void Program::do_call_function(uint32_t op, std::vector<DataElement>& sofar, std::vector<DataElement> args) const {
 // NOTE that the start: and goto are necessary here. Tail recursion requires that f(...) -> g(...)
 // doesn't create a new stack frame to call g, so don't want to make a recursive call. One usual way
 // of doing this would be while(true) { ... continue ... }, but because there are multiple rules to
@@ -207,11 +216,32 @@ start:
             }
         }
     }
-    throw std::runtime_error(std::format("rule not matched: {}",op)); // TODO better error here
+    std::string error=std::format("rule not matched: {}(",function_names[op]);
+    for(std::size_t i=0;i<args.size();i++) {
+        if(i!=0) {
+            error+=",";
+        }
+        error+=args[i].to_string();
+    }
+    error+=")";
+    throw std::runtime_error(error);
+}
+
+std::vector<DataElement> Program::run_string(std::string& call) {
+    Parser parser;
+    parser.tokens=lex(call);
+    std::unordered_map<std::string, std::size_t> param_id_map;
+    std::vector<Expression> expressions=parse_expression_list(parser, param_id_map, Eof, Comma);
+    const std::vector<DataElement> empty_bindings;
+    std::vector<DataElement> result;
+    for(Expression& e : expressions) {
+        do_call_single(e, empty_bindings, result);
+    }
+    return result;
 }
 
 std::vector<DataElement> Program::run(const std::string& fn, const std::vector<DataElement>& args) const {
     std::vector<DataElement> sofar;
-    do_call(function_map.at(fn),sofar,args);
+    do_call_function(function_map.at(fn),sofar,args);
     return sofar;
 }

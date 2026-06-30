@@ -1,0 +1,10 @@
+nprime(n) -> nprime_aux(n,2,{});
+
+nprime_aux(0,_,sofar) -> sofar;
+nprime_aux(n,p,sofar)::isprime(p,sofar) -> nprime_aux(n-1,p+1,{..sofar,p});
+nprime_aux(n,p,sofar) -> nprime_aux(n,p+1,sofar);
+
+isprime(_,{}) -> true;
+isprime(n,{i,.._})::i*i>n -> true;
+isprime(n,{i,.._})::n%i==0 -> false;
+isprime(n,{_,..rest}) -> isprime(n,rest);

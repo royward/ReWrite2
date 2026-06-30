@@ -19,7 +19,14 @@ std::vector<Token> lex(std::string_view program) {
             if(c=='_' && p==start_p+1) {
                 token_kind=Wildcard;
             } else {
-                token_kind=Identifier;
+                std::string_view sub=program.substr(start_p, p-start_p);
+                if(sub=="true") {
+                    token_kind=True;
+                } else if(sub=="false") {
+                    token_kind=False;
+                } else {
+                    token_kind=Identifier;
+                }
             }
         } else if(std::isdigit(static_cast<unsigned char>(c))) {
            while(p<len && std::isdigit(static_cast<unsigned char>(program[p]))) {
@@ -128,3 +135,12 @@ std::vector<Token> lex(std::string_view program) {
     });
     return result;
 }
+
+std::string Token::to_string() const {
+    return std::format("{{{}:{}:{},{}-{}}}",
+        text, static_cast<int>(kind),
+        row+1,
+        start_column+1,
+        end_column+1);
+}
+

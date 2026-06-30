@@ -17,10 +17,11 @@ struct Id { uint32_t value; };
 struct Const { DataElement value; };
 
 struct ParamSplat { uint32_t value; };
+struct ParamSplatWild {};
 struct ParamList { std::vector<Parameter> items; };
 struct ParamWildcard {};
 
-using ParameterVariant = std::variant<Id, ParamSplat, Const, ParamList, ParamWildcard>;
+using ParameterVariant = std::variant<Id, ParamSplat, ParamSplatWild, Const, ParamList, ParamWildcard>;
 
 struct Parameter {
     ParameterVariant value;
@@ -51,9 +52,10 @@ class Program {
 public:
     Program(std::string_view source);
     std::vector<DataElement> run(const std::string& fn, const std::vector<DataElement>& args) const;
+    std::vector<DataElement> run_string(std::string& call);
 private:
     void do_call_single(const Expression& expression, const std::vector<DataElement>& bindings, std::vector<DataElement>& sofar) const;
-    void do_call(uint32_t op, std::vector<DataElement>& sofar, std::vector<DataElement> args) const;
+    void do_call_function(uint32_t op, std::vector<DataElement>& sofar, std::vector<DataElement> args) const;
     // Implementations for parsing in parser.cpp
     void parse_rule(Parser& parser);
     Expression parse_expression(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, uint8_t pri);

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
+#include <variant>
 
 inline constexpr uint32_t TYPE_UNBOUND = 0;
 inline constexpr uint32_t TYPE_BOOL = 1;
@@ -21,4 +23,5 @@ using DataVariant = std::variant <DataUnbound, DataBool, DataInt, DataList, Data
 
 struct DataElement {
     DataVariant value;
+    std::string to_string() const;
 };
