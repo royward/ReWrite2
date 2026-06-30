@@ -1,3 +1,7 @@
+// Example: produce a list of integers {0, ... ,n-1} using tail recursion
+// This won't expand the stack
+// SPDX-License-Identifier: CC0-1.0
+
 listn2(n) -> listn_aux(0,n,{});
 
 listn_aux(n,n,sofar) -> sofar;

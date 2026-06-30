@@ -1,3 +1,6 @@
+// Example: first n prime numbers
+// SPDX-License-Identifier: CC0-1.0
+
 nprime(n) -> nprime_aux(n,2,{});
 
 nprime_aux(0,_,sofar) -> sofar;

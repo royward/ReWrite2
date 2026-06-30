@@ -1,3 +1,7 @@
+// ============================================================================
+// File: program.cpp
+// Description: Run a program. Main language logic is in here
+// ============================================================================
 #include "program.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"

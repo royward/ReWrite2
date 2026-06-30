@@ -1,2 +1,5 @@
+// Example: produce a list of integers {0, ... ,n-1}
+// SPDX-License-Identifier: CC0-1.0
+
 listn(0) -> {};
 listn(n) -> {..listn(n-1),n-1};

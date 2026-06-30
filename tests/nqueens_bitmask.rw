@@ -1,4 +1,7 @@
-nqueens(n) -> nqueens_aux(0,(1<<n)-1,{});
+// Example: n-queens. Returns all solutions. This variant uses bitmasks.
+// SPDX-License-Identifier: CC0-1.0
+
+nqueens(n) -> nqueens_aux(0,(2<<n)-2,{});
 
 // nqueens_aux(column_choices_sofar, column_choices_todo, rows_done)
 nqueens_aux(0,0,solution) -> {solution};

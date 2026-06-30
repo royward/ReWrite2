@@ -1,3 +1,6 @@
+// Example: n-queens. Returns all solutions
+// SPDX-License-Identifier: CC0-1.0
+
 nqueens(n) -> nqueens_aux({},listn1(n),{});
 
 listn1(0) -> {};
