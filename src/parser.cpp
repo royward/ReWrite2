@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "lexer.hpp"
+#include "token.hpp"
 #include "program.hpp"
 #include "parser.hpp"
 #include "util.hpp"

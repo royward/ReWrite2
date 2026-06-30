@@ -1,6 +1,7 @@
 // ============================================================================
 // File: lexer.cpp
 // Description: Lexing - takes a string_view and returns a list of Tokens
+// Also, Token.to_string()
 // ============================================================================
 // Copyright 2026 Roy Ward
 //
@@ -18,7 +19,7 @@
 
 #include <stdexcept>
 #include <format>
-#include "lexer.hpp"
+#include "token.hpp"
 
 std::vector<Token> lex(std::string_view program) {
     std::vector<Token> result;

@@ -3,7 +3,7 @@
 // Description: Run a program. Main language logic is in here
 // ============================================================================
 #include "program.hpp"
-#include "lexer.hpp"
+#include "token.hpp"
 #include "parser.hpp"
 #include "util.hpp"
 #include <stdexcept>
