@@ -1,0 +1,2 @@
+fact(n)::n>0 -> n*fact(n-1);
+fact(_) -> 1;

@@ -66,6 +66,9 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
             uint32_t id=static_cast<uint32_t>(param_id_map[s]);
             return Parameter{Id{id}};
         }
+        case Wildcard : {
+            return Parameter{ParamWildcard{}};
+        }
         case Splat: {
             Token t2=parser.current();
             parser.advance();
@@ -73,7 +76,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
                 std::string s=static_cast<std::string>(t2.text);
                 param_id_map.try_emplace(s,param_id_map.size());
                 uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-                return Parameter{ParamSplat{std::make_unique<Parameter>(Parameter{Id{id}})}};
+                return Parameter{ParamSplat{id}};
             } else {
                 parse_error(t2,{"identifier"});
             } break;
@@ -89,6 +92,7 @@ Parameter parse_param(Parser& parser, std::unordered_map<std::string, std::size_
 }
 
 std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::string, std::size_t> &param_id_map, TokenKind end, TokenKind sep) {
+    std::size_t splat_count=0;
     std::vector<Parameter> param_list;
     if(parser.current().kind==end) {
         parser.advance();
@@ -101,7 +105,14 @@ std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::
                 parser.advance();
                 return param_list; // deal with trailing comma case
             } else {
-                param_list.push_back(parse_param(parser,param_id_map));
+                Parameter p2=parse_param(parser,param_id_map);
+                if(std::holds_alternative<ParamSplat>(p2.value)) {
+                    splat_count++;
+                    if(splat_count>1) {
+                        throw std::runtime_error("only one splat per list");
+                    }
+                }
+                param_list.push_back(std::move(p2));
                 separator_or_end=parser.current().kind;
                 if(separator_or_end!=sep && separator_or_end!=end) {
                     parse_error(parser.current(),{token_kind_to_string(sep),token_kind_to_string(end)});
@@ -113,21 +124,45 @@ std::vector<Parameter> parse_param_list(Parser& parser, std::unordered_map<std::
     return param_list;
 }
 
-std::tuple<uint8_t, uint32_t> prefix_binding_power(TokenKind op) {
+std::tuple<uint8_t, TokenKind> prefix_binding_power(TokenKind op) {
     switch(op) {
-        case Minus: return {6, OP_UNARY_MINUS};
-        default: return {0, OP_NO_MATCH};
+        case Minus: return {110, Minus};      // unary minus, binds tighter than any infix op
+        case Not:   return {110, Not};        // unary logical/bitwise not
+        default:    return {0, Eof};
     }
 }
 
-std::tuple<uint8_t, uint8_t, uint32_t> infix_binding_power(TokenKind op) {
+std::tuple<uint8_t, uint8_t, TokenKind> infix_binding_power(TokenKind op) {
     switch(op) {
-        case EqualsEquals: return {2, 3, OP_EQUAL};
-        case Plus: return {5, 6, OP_PLUS};
-        case Minus: return {5, 6, OP_MINUS};
-        case Times: return {7, 8, OP_TIMES};
-        case Divide: return {7, 8, OP_DIVIDE};
-        default: return {0, 0, OP_NO_MATCH};
+        // logical
+        // case Or:           return {10, 11, Or};
+        // case And:          return {30, 31, And};
+
+        // comparison - now binds looser than bitwise, unlike C
+        case EqualEqual:   return {50, 51, EqualEqual};
+        case NotEqual:     return {50, 51, NotEqual};
+        case Less:         return {50, 51, Less};
+        case Greater:      return {50, 51, Greater};
+        case LessEqual:    return {50, 51, LessEqual};
+        case GreaterEqual: return {50, 51, GreaterEqual};
+
+        // // bitwise - binds tighter than comparison
+        // case BitOr:        return {70, 71, BitOr};
+        // case BitXor:       return {90, 91, BitXor};
+        // case BitAnd:       return {110, 111, BitAnd};
+        //
+        // // shift
+        // case ShiftLeft:    return {130, 131, ShiftLeft};
+        // case ShiftRight:   return {130, 131, ShiftRight};
+
+        // arithmetic
+        case Plus:         return {150, 151, Plus};
+        case Minus:        return {150, 151, Minus};
+        case Times:        return {170, 171, Times};
+        case Divide:       return {170, 171, Divide};
+        case Modulus:      return {170, 171, Modulus};
+
+        default: return {0, 0, Eof};
     }
 }
 
@@ -142,7 +177,7 @@ Expression Program::parse_expression(Parser& parser, std::unordered_map<std::str
         Token t2=parser.current();
         parser.advance();
         expr=Expression{Const{DataElement{DataInt{-token_to_int(t2)}}}};
-    } else if(prefix_id!=OP_NO_MATCH) {
+    } else if(prefix_id!=Eof) {
         Expression expr2=parse_expression(parser,param_id_map,prefix_pri);
         std::vector<Expression> expr_list;
         expr_list.push_back(std::move(expr2));
@@ -160,22 +195,30 @@ Expression Program::parse_expression(Parser& parser, std::unordered_map<std::str
                     expr=Expression{Call{id,std::move(expr_list)}};
                 } else {
                     std::string s=static_cast<std::string>(t.text);
-                    param_id_map.try_emplace(s,param_id_map.size()); // TODO make that an error to call use unbound identifier, but have do deal with _ first
-                    uint32_t id=static_cast<uint32_t>(param_id_map[s]);
+                    auto search=param_id_map.find(s);
+                    if(search==param_id_map.end()) {
+                        throw std::runtime_error(std::format("parameter not bound on left hand size: {}",s));
+                    }
+                    uint32_t id=static_cast<uint32_t>(search->second);
                     expr=Expression{Id{id}};
                 }
             } break;
             case Splat: {
-                Token t2=parser.current();
-                parser.advance();
-                if(t2.kind==Identifier) {
-                    std::string s=static_cast<std::string>(t2.text);
-                    param_id_map.try_emplace(s,param_id_map.size()); // TODO make that an error to call use unbound identifier, but have do deal with _ first
-                    uint32_t id=static_cast<uint32_t>(param_id_map[s]);
-                    expr=Expression{ExprSplat{std::make_unique<Expression>(Expression{Id{id}})}};
-                } else {
-                    parse_error(t2,{"identifier"});
-                };
+                Expression splat_expr=parse_expression(parser,param_id_map,200);
+                expr=Expression{ExprSplat{std::make_unique<Expression>(std::move(splat_expr))}};
+                // Token t2=parser.current();
+                // parser.advance();
+                // if(t2.kind==Identifier) {
+                //     std::string s=static_cast<std::string>(t2.text);
+                //     auto search=param_id_map.find(s);
+                //     if(search==param_id_map.end()) {
+                //         throw std::runtime_error(std::format("parameter not bound on left hand size: {}",s));
+                //     }
+                //     uint32_t id=static_cast<uint32_t>(search->second);
+                //     expr=Expression{ExprSplat{std::make_unique<Expression>(Expression{Id{id}})}};
+                // } else {
+                //     parse_error(t2,{"identifier"});
+                // };
             } break;
             case LBrace: {
                 std::vector<Expression> list_internal=parse_expression_list(parser, param_id_map, RBrace, Comma);
@@ -194,7 +237,7 @@ Expression Program::parse_expression(Parser& parser, std::unordered_map<std::str
     while(true) {
         Token t=parser.current();
         auto [prefix_pri_left, prefix_pri_right, prefix_id] = infix_binding_power(t.kind);
-        if(prefix_id==OP_NO_MATCH || prefix_pri_left<pri) {
+        if(prefix_id==Eof || prefix_pri_left<pri) {
             break;
         }
         parser.advance();
@@ -241,7 +284,7 @@ void Program::parse_rule(Parser& parser) {
             parser.advance();
             std::unordered_map<std::string, std::size_t> param_id_map;
             rule.left=parse_param_list(parser,param_id_map,RParen,Comma);
-            if(parser.current().kind==Guard) {
+            if(parser.current().kind==ColonColon) {
                 parser.advance();
                 rule.guard=parse_expression(parser,param_id_map,0);
             } else {

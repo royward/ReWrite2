@@ -1,0 +1,2 @@
+listn(0) -> {};
+listn(n) -> {..listn(n-1),n-1};

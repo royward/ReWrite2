@@ -26,23 +26,17 @@ std::string load_file(const std::filesystem::path& path) {
 int main(int argc, char** argv) {
     CLI::App app{"ReWrite Stage 1 interpreter"};
     std::string filename;
+    std::string callname;
     app.add_option("file", filename, "Source file to interpret")->required();
+    app.add_option("call", callname, "Funtion to run")->required();
     CLI11_PARSE(app, argc, argv);
     try {
         std::string s=load_file(filename);
         std::println("{}",s);
-        //std::vector<Token> tokens=lex(s);
-        //for (const auto& token : tokens) {
-        //    std::println("{}", token);
-        //}
         Program prog(s);
         std::vector<DataElement> inputs;
         inputs.push_back(DataElement{DataInt{10}});
-        std::string fn="fact";
-        std::vector<DataElement> results=prog.run(fn,inputs);
-        //for (const auto& i : results) {
-        //    std::print("{},", i);
-        //}
+        std::vector<DataElement> results=prog.run(callname,inputs);
         std::println("");
     } catch(const std::runtime_error& e) {
         std::println("Error: {}", e.what());

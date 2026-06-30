@@ -1,19 +1,27 @@
 #include "program.hpp"
 
-DataElement do_call_internal(uint32_t op, const std::vector<DataElement>& args) {
+template<typename InType, typename OutType, typename Op>
+DataElement binary_op(const char* op_name, const DataElement& a, const DataElement& b, Op op) {
+    if (!std::holds_alternative<InType>(a.value) || !std::holds_alternative<InType>(b.value)) {
+        throw std::runtime_error(std::format("wrong types binary {}: {},{}", op_name, a.value.index(), b.value.index()));
+    }
+    return DataElement{OutType{op(std::get<InType>(a.value).value, std::get<InType>(b.value).value)}};
+}
+
+DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args) {
     switch(args.size()) {
         case 1: {
             const DataElement& arg=args[0];
             std::size_t argtype=arg.value.index();
             switch(op) {
-                case OP_UNARY_MINUS: {
+                case Minus: {
                     if(argtype==TYPE_I64) {
                         return DataElement{DataInt{-std::get<DataInt>(arg.value).value}};
                     } else {
                         throw std::runtime_error(std::format("wrong type unary minus: {}",argtype));
                     }
                 }
-                default: throw std::runtime_error(std::format("unknown unary op: {}",op));
+                default: throw std::runtime_error(std::format("unknown unary op: {}",(int)op));
             }
         } break;
         case 2: {
@@ -22,28 +30,20 @@ DataElement do_call_internal(uint32_t op, const std::vector<DataElement>& args) 
             std::size_t argtype0=arg0.value.index();
             std::size_t argtype1=arg1.value.index();
             switch(op) {
-                case OP_PLUS: {
-                    if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
-                        return DataElement{DataInt{std::get<DataInt>(arg0.value).value+std::get<DataInt>(arg1.value).value}};
-                    } else {
-                        throw std::runtime_error(std::format("wrong types binary plus: {},{}",argtype0,argtype1));
-                    }
+                case EqualEqual: { // works for all types
+                    return DataElement{DataBool{compare_equal(arg0,arg1)}};
                 }
-                case OP_MINUS: {
-                    if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
-                        return DataElement{DataInt{std::get<DataInt>(arg0.value).value-std::get<DataInt>(arg1.value).value}};
-                    } else {
-                        throw std::runtime_error(std::format("wrong types binary minus: {},{}",argtype0,argtype1));
-                    }
+                case NotEqual: { // works for all types
+                    return DataElement{DataBool{!compare_equal(arg0,arg1)}};
                 }
-                case OP_TIMES: {
-                    if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
-                        return DataElement{DataInt{std::get<DataInt>(arg0.value).value*std::get<DataInt>(arg1.value).value}};
-                    } else {
-                        throw std::runtime_error(std::format("wrong types binary times: {},{}",argtype0,argtype1));
-                    }
-                }
-                case OP_DIVIDE: {
+                case Plus: return binary_op<DataInt, DataInt>("plus", arg0, arg1, std::plus<>{});
+                case Minus: return binary_op<DataInt, DataInt>("minus", arg0, arg1, std::minus<>{});
+                case Times: return binary_op<DataInt, DataInt>("times", arg0, arg1, std::multiplies<>{});
+                case Greater: return binary_op<DataInt, DataBool>("greater", arg0, arg1, std::greater<>{});
+                case Less: return binary_op<DataInt, DataBool>("less", arg0, arg1, std::less<>{});
+                case GreaterEqual: return binary_op<DataInt, DataBool>("greater_equal", arg0, arg1, std::greater_equal<>{});
+                case LessEqual: return binary_op<DataInt, DataBool>("less_equal", arg0, arg1, std::less_equal<>{});
+                 case Divide: {
                     if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
                         if (std::get<DataInt>(arg1.value).value == 0) {
                             throw std::runtime_error("division by zero");
@@ -53,7 +53,7 @@ DataElement do_call_internal(uint32_t op, const std::vector<DataElement>& args) 
                         throw std::runtime_error(std::format("wrong types binary divide: {},{}",argtype0,argtype1));
                     }
                 }
-                case OP_MODULUS: {
+                case Modulus: {
                     if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
                         if (std::get<DataInt>(arg1.value).value == 0) {
                             throw std::runtime_error("modulus by zero");
@@ -63,7 +63,7 @@ DataElement do_call_internal(uint32_t op, const std::vector<DataElement>& args) 
                         throw std::runtime_error(std::format("wrong types binary modulus: {},{}",argtype0,argtype1));
                     }
                 }
-                default: throw std::runtime_error(std::format("unknown binary op: {}",op));
+                default: throw std::runtime_error(std::format("unknown binary op: {}",(int)op));
             }
         } break;
         default: throw std::runtime_error(std::format("do_call_internal only works with 1 or 2 args, found {}",args.size()));

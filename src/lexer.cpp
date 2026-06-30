@@ -12,11 +12,15 @@ std::vector<Token> lex(std::string_view program) {
         TokenKind token_kind;
         std::size_t start_p=p;
         char c=program[p++];
-        if(std::isalpha(static_cast<unsigned char>(c))) {
-            while(p<len && (program[p]=='_' || std::isalpha(static_cast<unsigned char>(program[p])))) {
+        if(c=='_' || std::isalpha(static_cast<unsigned char>(c))) {
+            while(p<len && (program[p]=='_' || std::isalpha(static_cast<unsigned char>(program[p])) || std::isdigit(static_cast<unsigned char>(program[p])))) {
                 p++;
             }
-            token_kind=Identifier;
+            if(c=='_' && p==start_p+1) {
+                token_kind=Wildcard;
+            } else {
+                token_kind=Identifier;
+            }
         } else if(std::isdigit(static_cast<unsigned char>(c))) {
            while(p<len && std::isdigit(static_cast<unsigned char>(program[p]))) {
                 p++;
@@ -30,6 +34,9 @@ std::vector<Token> lex(std::string_view program) {
             continue; // NOTE: no token produced for whitespaces
         } else {
             switch(c) {
+                case '{':token_kind=LBrace; break;
+                case '}':token_kind=RBrace; break;
+                case ',':token_kind=Comma; break;
                 case '(':token_kind=LParen; break;
                 case ')':token_kind=RParen; break;
                 case ';':token_kind=Semicolon; break;
@@ -43,6 +50,60 @@ std::vector<Token> lex(std::string_view program) {
                         token_kind=Arrow;
                     } else {
                         token_kind=Minus;
+                    }
+                    break;
+                }
+                case '<': {
+                    if(p<len && program[p]=='=') {
+                        p++;
+                        token_kind=LessEqual;
+                    } else {
+                        token_kind=Less;
+                    }
+                    break;
+                }
+                case '>': {
+                    if(p<len && program[p]=='=') {
+                        p++;
+                        token_kind=GreaterEqual;
+                    } else {
+                        token_kind=Greater;
+                    }
+                    break;
+                }
+                case '!': {
+                    if(p<len && program[p]=='=') {
+                        p++;
+                        token_kind=NotEqual;
+                    } else {
+                        token_kind=Not;
+                    }
+                    break;
+                }
+                case '=': {
+                    if(p<len && program[p]=='=') {
+                        p++;
+                        token_kind=EqualEqual;
+                    } else {
+                        token_kind=Equal;
+                    }
+                    break;
+                }
+                case ':': {
+                    if(p<len && program[p]==':') {
+                        p++;
+                        token_kind=ColonColon;
+                    } else {
+                        token_kind=Colon;
+                    }
+                    break;
+                }
+                 case '.': {
+                    if(p<len && program[p]=='.') {
+                        p++;
+                        token_kind=Splat;
+                    } else {
+                        token_kind=Dot;
                     }
                     break;
                 }

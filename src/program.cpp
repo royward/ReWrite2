@@ -7,11 +7,14 @@
 #include <ranges>
 #include <string>
 
-DataElement do_call_internal(uint32_t op, const std::vector<DataElement>& args);
+DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args);
 
 Program::Program(std::string_view source) {
     Parser parser;
     parser.tokens=lex(source);
+    for(auto t:parser.tokens) {
+        std::println("{}",t);
+    }
     while(!parser.eof()) {
         parse_rule(parser);
     }
@@ -63,13 +66,18 @@ bool do_match_single(const Parameter& parameter, const DataElement& x, std::vect
             } else {
                 return compare_equal(x,v);
             }
+        } else if constexpr (std::is_same_v<T, ParamWildcard>) {
+            return true; // match with anything
         } else if constexpr (std::is_same_v<T, ParamSplat>) {
             throw std::runtime_error("internal error: do_match_single should not be matched with splat");
             return false; // make compiler happy
         } else if constexpr (std::is_same_v<T, Const>) {
             return compare_equal(x,alt.value);
         } else if constexpr (std::is_same_v<T, ParamList>) {
-            return false; // TODO
+            if(!std::holds_alternative<DataList>(x.value)) {
+                return false;
+            }
+            return do_match_vec(alt.items,std::get<DataList>(x.value).value,bindings);
         }
     }, parameter.value);
 }
@@ -82,8 +90,22 @@ bool do_match_vec(const std::vector<Parameter>& parameters, const std::vector<Da
     while(pi<plen) {
         const Parameter& parameter=parameters[pi];
         if (std::holds_alternative<ParamSplat>(parameter.value)) {
-            //const ParamSplat& splat = std::get<ParamSplat>(parameter.value);
-            // TODO
+            const ParamSplat& splat = std::get<ParamSplat>(parameter.value);
+            if(plen>vlen+1) {
+                throw std::runtime_error("failed to get value with '..': parameter list too short");
+            }
+            // we get just enough stuff in the spat that the rest of the parameters will match up exactly
+            std::vector<DataElement> sub_vector(values.begin() + vi, values.begin() + vi + (vlen-plen+1));
+            vi+=vlen-plen+1;
+            DataElement x=DataElement{DataList(std::move(sub_vector))};
+            DataElement& v=bindings[splat.value];
+            if(v.value.index()==TYPE_UNBOUND) {
+                v=x;
+            } else {
+                if(!compare_equal(x,v)) {
+                    return false;
+                }
+            }
         } else {
             if(vi>=vlen) {
                 return false; // ran out of parameters
@@ -104,11 +126,22 @@ void Program::do_call_single(const Expression& expression, const std::vector<Dat
         if constexpr (std::is_same_v<T, Id>) {
             sofar.push_back(bindings[alt.value]);
         } else if constexpr (std::is_same_v<T, ExprSplat>) {
-            throw std::runtime_error("TODO"); // TODO
+            std::vector<DataElement> splattable;
+            do_call_single(*alt.inner,bindings,splattable);
+            for(auto& e:splattable) {
+                if(!holds_alternative<DataList>(e.value)) {
+                    throw std::runtime_error("splat only works on lists");
+                }
+                sofar.insert(sofar.end(),get<DataList>(e.value).value.begin(),get<DataList>(e.value).value.end());
+            }
         } else if constexpr (std::is_same_v<T, Const>) {
             sofar.push_back(alt.value);
         } else if constexpr (std::is_same_v<T, ExprList>) {
-            throw std::runtime_error("TODO"); // TODO
+            std::vector<DataElement> list_internal;
+            for(const Expression& e:alt.items) {
+                do_call_single(e,bindings,list_internal);
+            }
+            sofar.push_back(DataElement{DataList{std::move(list_internal)}});
         } else if constexpr (std::is_same_v<T, Call>) {
             std::vector<DataElement> args;
             for(const Expression& e:alt.args) {
@@ -128,13 +161,28 @@ void Program::do_call_single(const Expression& expression, const std::vector<Dat
 }
 
 void Program::do_call(uint32_t op, std::vector<DataElement>& sofar, std::vector<DataElement> args) const {
-    while(true) {
-        // first find the right rule set
-        const std::vector<Rule>& rules=program[op];
-        // find the first match
-        for(const Rule& rule: rules) {
-            std::vector<DataElement> bindings(rule.names.size(),DataElement{DataUnbound{}});
-            if(do_match_vec(rule.left,args,bindings)) { // TODO: guards
+// NOTE that the start: and goto are necessary here. Tail recursion requires that f(...) -> g(...)
+// doesn't create a new stack frame to call g, so don't want to make a recursive call. One usual way
+// of doing this would be while(true) { ... continue ... }, but because there are multiple rules to
+// be checked, the continue would need to break out of two levels, which is not supported. A flag could
+// also be used to avoid the goto, but that's extra machinery, where the goto is clear.
+start:
+    // first find the right rule set
+    const std::vector<Rule>& rules=program[op];
+    // find the first match
+    for(const Rule& rule: rules) {
+        std::vector<DataElement> bindings(rule.names.size(),DataElement{DataUnbound{}});
+        if(do_match_vec(rule.left,args,bindings)) {
+            bool guard_ok=true;
+            if (rule.guard.has_value()) {
+                std::vector<DataElement> guard_sofar;
+                do_call_single(*rule.guard,bindings,guard_sofar);
+                if(guard_sofar.size()!=1 || !std::holds_alternative<DataBool>(guard_sofar[0].value)) {
+                    throw std::runtime_error("Guard must return a single value bool");
+                }
+                guard_ok=get<DataBool>(guard_sofar[0].value).value;
+            }
+            if(guard_ok) {
                 // found matching rule, now evaluate right side, being careful to handle tail recursion
                 std::size_t process_with_tail=0;
                 if(rule.right.size()>0 && std::holds_alternative<Call>(rule.right[rule.right.size()-1].value)) {
@@ -154,12 +202,12 @@ void Program::do_call(uint32_t op, std::vector<DataElement>& sofar, std::vector<
                         do_call_single(e,bindings,new_args);
                     }
                     args = std::move(new_args);
-                    continue;
+                    goto start; // tail recursion - call the next function without creating a stack frame
                 }
             }
         }
-        throw std::runtime_error(std::format("rule not matched: {}",op)); // TODO better error here
     }
+    throw std::runtime_error(std::format("rule not matched: {}",op)); // TODO better error here
 }
 
 std::vector<DataElement> Program::run(const std::string& fn, const std::vector<DataElement>& args) const {

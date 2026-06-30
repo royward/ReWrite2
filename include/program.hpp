@@ -10,25 +10,17 @@
 #include "data_element.hpp"
 #include "token_kind.hpp"
 
-inline constexpr uint32_t OP_NO_MATCH = 0;
-inline constexpr uint32_t OP_UNARY_MINUS = 1;
-inline constexpr uint32_t OP_PLUS = 2;
-inline constexpr uint32_t OP_MINUS = 3;
-inline constexpr uint32_t OP_TIMES = 4;
-inline constexpr uint32_t OP_DIVIDE = 5;
-inline constexpr uint32_t OP_EQUAL = 6;
-inline constexpr uint32_t OP_MODULUS = 7;
-
 struct Parser;
 struct Parameter;
 
 struct Id { uint32_t value; };
 struct Const { DataElement value; };
 
-struct ParamSplat { std::unique_ptr<Parameter> inner; };
+struct ParamSplat { uint32_t value; };
 struct ParamList { std::vector<Parameter> items; };
+struct ParamWildcard {};
 
-using ParameterVariant = std::variant<Id, ParamSplat, Const, ParamList>;
+using ParameterVariant = std::variant<Id, ParamSplat, Const, ParamList, ParamWildcard>;
 
 struct Parameter {
     ParameterVariant value;
@@ -39,7 +31,7 @@ struct Expression; // forward declaration
 struct ExprSplat { std::unique_ptr<Expression> inner; };
 struct ExprList { std::vector<Expression> items; };
 struct Call { uint32_t func_id; std::vector<Expression> args; };
-struct CallInternal { uint32_t func_id; std::vector<Expression> args; };
+struct CallInternal { TokenKind func_id; std::vector<Expression> args; };
 struct Never {};
 
 using ExpressionVariant = std::variant <Id, ExprSplat, Const, ExprList, Call, CallInternal, Never>;
@@ -71,3 +63,6 @@ private:
     std::vector<std::string> function_names; // debugging only
     std::unordered_map<std::string, std::size_t> function_map; // only for lookups for call
 };
+
+bool compare_equal(const DataElement& x, const DataElement& y);
+

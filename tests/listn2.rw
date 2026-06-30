@@ -1,0 +1,4 @@
+listn2(n) -> listn_aux(0,n,{});
+
+listn_aux(n,n,sofar) -> sofar;
+listn_aux(n,m,sofar) -> listn_aux(n+1,m,{..sofar,n});
