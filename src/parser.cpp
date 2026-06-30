@@ -132,6 +132,7 @@ std::tuple<uint8_t, TokenKind> prefix_binding_power(TokenKind op) {
     switch(op) {
         case Minus: return {110, Minus};      // unary minus, binds tighter than any infix op
         case Not:   return {110, Not};        // unary logical/bitwise not
+        case CountTrailingZeros:   return {190, CountTrailingZeros};
         default:    return {0, Eof};
     }
 }
@@ -139,8 +140,8 @@ std::tuple<uint8_t, TokenKind> prefix_binding_power(TokenKind op) {
 std::tuple<uint8_t, uint8_t, TokenKind> infix_binding_power(TokenKind op) {
     switch(op) {
         // logical
-        // case Or:           return {10, 11, Or};
-        // case And:          return {30, 31, And};
+        case OrOr:           return {10, 11, OrOr};
+        case AndAnd:          return {30, 31, AndAnd};
 
         // comparison - now binds looser than bitwise, unlike C
         case EqualEqual:   return {50, 51, EqualEqual};
@@ -150,14 +151,14 @@ std::tuple<uint8_t, uint8_t, TokenKind> infix_binding_power(TokenKind op) {
         case LessEqual:    return {50, 51, LessEqual};
         case GreaterEqual: return {50, 51, GreaterEqual};
 
-        // // bitwise - binds tighter than comparison
-        // case BitOr:        return {70, 71, BitOr};
-        // case BitXor:       return {90, 91, BitXor};
-        // case BitAnd:       return {110, 111, BitAnd};
-        //
-        // // shift
-        // case ShiftLeft:    return {130, 131, ShiftLeft};
-        // case ShiftRight:   return {130, 131, ShiftRight};
+        // bitwise - binds tighter than comparison
+        case Or:           return {70, 71, Or};
+        case Xor:          return {90, 91, Xor};
+        case And:          return {110, 111, And};
+
+        // shift
+        case ShiftLeft:    return {130, 131, ShiftLeft};
+        case ShiftRight:   return {130, 131, ShiftRight};
 
         // arithmetic
         case Plus:         return {150, 151, Plus};

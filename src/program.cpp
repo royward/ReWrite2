@@ -55,6 +55,9 @@ bool compare_equal(const DataElement& x, const DataElement& y) {
     }
 }
 
+bool do_match_vec(const std::vector<Parameter>& parameters, const std::vector<DataElement>& values, std::vector<DataElement>& bindings);
+
+
 bool do_match_single(const Parameter& parameter, const DataElement& x, std::vector<DataElement>& bindings) {
     return std::visit([&bindings, &x](const auto& alt) {
         using T = std::decay_t<decltype(alt)>;

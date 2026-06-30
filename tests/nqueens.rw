@@ -1,0 +1,19 @@
+nqueens(n) -> nqueens_aux({},listn1(n),{});
+
+listn1(0) -> {};
+listn1(n) -> {..listn1(n-1),n};
+
+// nqueens_aux(column_choices_sofar, column_choices_todo, rows_done)
+nqueens_aux({},{},solution) -> {solution};
+nqueens_aux(_,{},solution) -> {};
+nqueens_aux(col_so_far,{c,..col_todo},rows_done) ->
+    {..nqueens_try(col_so_far,col_todo,c,rows_done),
+     ..nqueens_aux({..col_so_far,c},col_todo,rows_done)};
+
+nqueens_try(col_so_far,col_todo,c,rows_done)::attack(c,1,rows_done) -> {}; // no solutions here
+nqueens_try(col_so_far,col_todo,c,rows_done) -> nqueens_aux({},{..col_so_far,..col_todo},{c,..rows_done}); // got another row
+
+attack(c,offset,{}) -> false;
+attack(c,offset,{x,..rest}) :: c+offset==x || c-offset==x -> true;
+attack(c,offset,{_,..rest}) -> attack(c,offset+1,rest);
+

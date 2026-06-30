@@ -24,6 +24,8 @@ std::vector<Token> lex(std::string_view program) {
                     token_kind=True;
                 } else if(sub=="false") {
                     token_kind=False;
+                } else if(sub=="count_trailing_zeros") {
+                    token_kind=CountTrailingZeros;
                 } else {
                     token_kind=Identifier;
                 }
@@ -49,8 +51,19 @@ std::vector<Token> lex(std::string_view program) {
                 case ';':token_kind=Semicolon; break;
                 case '*':token_kind=Times; break;
                 case '+':token_kind=Plus; break;
-                case '/':token_kind=Divide; break;
+                case '/': {
+                    if(p<len && program[p]=='/') {
+                        p++;
+                        while(p<len && program[p]!='\n') {
+                            p++;
+                        }
+                        continue; // no token produced for comments
+                    } else {
+                        token_kind=Divide; break;
+                    }
+                }
                 case '%':token_kind=Modulus; break;
+                case '^':token_kind=Xor; break;
                 case '-': {
                     if(p<len && program[p]=='>') {
                         p++;
@@ -64,6 +77,9 @@ std::vector<Token> lex(std::string_view program) {
                     if(p<len && program[p]=='=') {
                         p++;
                         token_kind=LessEqual;
+                    } else if(p<len && program[p]=='<') {
+                        p++;
+                        token_kind=ShiftLeft;
                     } else {
                         token_kind=Less;
                     }
@@ -73,6 +89,9 @@ std::vector<Token> lex(std::string_view program) {
                     if(p<len && program[p]=='=') {
                         p++;
                         token_kind=GreaterEqual;
+                    } else if(p<len && program[p]=='>') {
+                        p++;
+                        token_kind=ShiftRight;
                     } else {
                         token_kind=Greater;
                     }
@@ -111,6 +130,24 @@ std::vector<Token> lex(std::string_view program) {
                         token_kind=Splat;
                     } else {
                         token_kind=Dot;
+                    }
+                    break;
+                }
+                case '&': {
+                    if(p<len && program[p]=='&') {
+                        p++;
+                        token_kind=AndAnd;
+                    } else {
+                        token_kind=And;
+                    }
+                    break;
+                }
+               case '|': {
+                    if(p<len && program[p]=='|') {
+                        p++;
+                        token_kind=OrOr;
+                    } else {
+                        token_kind=Or;
                     }
                     break;
                 }

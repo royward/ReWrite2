@@ -27,7 +27,10 @@ add_executable(rewrite_cpp
 )
 
 target_include_directories(rewrite_cpp PRIVATE include)
-
 target_link_libraries(rewrite_cpp PRIVATE CLI11::CLI11)
-
 target_compile_options(rewrite_cpp PRIVATE -Wall -Wextra)
+
+# if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#     target_compile_options(rewrite_cpp PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+#     target_link_options(rewrite_cpp PRIVATE -fsanitize=address,undefined)
+# endif()
