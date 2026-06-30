@@ -72,7 +72,7 @@ DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args)
                         }
                         return DataElement{DataInt{std::get<DataInt>(arg0.value).value<<std::get<DataInt>(arg1.value).value}};
                     } else {
-                        throw std::runtime_error(std::format("wrong types binary divide: {},{}",argtype0,argtype1));
+                        throw std::runtime_error(std::format("wrong types left shift: {},{}",argtype0,argtype1));
                     }
                 }
                  case ShiftRight: {
@@ -82,7 +82,7 @@ DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args)
                         }
                         return DataElement{DataInt{std::get<DataInt>(arg0.value).value>>std::get<DataInt>(arg1.value).value}};
                     } else {
-                        throw std::runtime_error(std::format("wrong types binary divide: {},{}",argtype0,argtype1));
+                        throw std::runtime_error(std::format("wrong types right shift: {},{}",argtype0,argtype1));
                     }
                 }
                  case Divide: {
