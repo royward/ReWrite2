@@ -132,7 +132,7 @@ The first rule will fire if `n` is matched (which will match to any single argum
 
 The `_` is a special symbol that means "match with anything". Unlike a named parameter, it doesn't bind to anything, so you can use multiple `_` in the same rule without conflict.
 
-### Pattern matching
+#### Pattern matching
 
 So far, all the examples have treated function parameters like they would appear in most other languages. ReWrite2 does full matching, which is richer than this - the same identifer can appear as part of a match multiple times, but then it must be bound to the same value. For instance:
 
@@ -234,9 +234,9 @@ listn(n) -> {..listn(n-1),n-1};
 
 `listn(3)` returns `{0,1,2}`. I leave working through this as an exercise for the reader.
 
-### Tail recursion
+#### Tail recursion
 
-ReWrite2 uses a lot of recursion. One thing to be aware of is that each recursive call typically uses another frame on the stack, so deep recursions can cause a stack overflow. This is mitigated by tail recursion - a jump (tail call) is used on the last operation performed by a function. so in:
+ReWrite2 uses a lot of recursion. One thing to be aware of is that each recursive call typically uses another frame on the stack, so deep recursions can cause a stack overflow. This is mitigated by tail recursion - a jump (tail call) is used on the last operation performed by a function, so in:
 
 ```
 f(x) -> g(x),t(h(x))
@@ -255,11 +255,62 @@ listn_aux(n,m,sofar) -> listn_aux(n+1,m,{..sofar,n});
 
 This is a little more complicated than `listn`, but avoids the stack growing with the size of `n`. It basically sets up an accumulator `sofar`, so that `listn_aux` effectively becomes a loop.
 
-### More complex examples
+## More complex examples
+
+Here are some examples that put these concepts together. I'm not going to work through them, but give some commentary.
 
 #### First n prime numbers
 
+The "find the nth prime number" was one of my milestone tests in ReWrite version 1, so it seemed fitting to include it here.
+
+```
+nprime(n) -> nprime_aux(n,2,{});
+
+nprime_aux(0,_,sofar) -> sofar;
+nprime_aux(n,p,sofar)::isprime(p,sofar) -> nprime_aux(n-1,p+1,{..sofar,p});
+nprime_aux(n,p,sofar) -> nprime_aux(n,p+1,sofar);
+
+isprime(_,{}) -> true;
+isprime(n,{i,.._})::i*i>n -> true;
+isprime(n,{i,.._})::n%i==0 -> false;
+isprime(n,{_,..rest}) -> isprime(n,rest);
+```
+
+`nprime_aux` is effectively a loop, trying increasing numbers one at a time against the list of primes found so far.
+
+`isprime` is a good exemplar showing how rule matching can make code clear. There is a terminating condition ("we tried them all") first rule, another rule for exiting early, another one for "this is not prime", and lastly, "we tested this number, go try the next one". I sometimes think of it as "one thought = one line".
+
 #### N-Queens
+
+This would not be complete without an example that is computationally more heavy. I've played a lot with Prolog and Prolog like languages, so the N-Queens problem is my selection here - "how can I place N queens on an NxN chessboard so that none of them take each other". This code returns all the solutions, as a list of which column each queen should go on for the corresponding row.
+
+```
+nqueens(n) -> nqueens_aux({},listn1(n),{});
+
+listn1(0) -> {};
+listn1(n) -> {..listn1(n-1),n};
+
+// nqueens_aux(column_choices_sofar, column_choices_todo, rows_done)
+nqueens_aux({},{},solution) -> {solution};
+nqueens_aux(_,{},solution) -> {};
+nqueens_aux(col_so_far,{c,..col_todo},rows_done) ->
+    {..nqueens_try(col_so_far,col_todo,c,rows_done),
+     ..nqueens_aux({..col_so_far,c},col_todo,rows_done)};
+
+nqueens_try(col_so_far,col_todo,c,rows_done)::attack(c,1,rows_done) -> {}; // no solutions here
+nqueens_try(col_so_far,col_todo,c,rows_done) -> nqueens_aux({},{..col_so_far,..col_todo},{c,..rows_done}); // got another row
+
+attack(c,offset,{}) -> false;
+attack(c,offset,{x,..rest}) :: c+offset==x || c-offset==x -> true;
+attack(c,offset,{_,..rest}) -> attack(c,offset+1,rest);
+```
+
+Things of note:
+* `nqueens` returns a list of solutions, where each solution is a list of numbers.
+* This explores all branches of the tree, using the `{..nqueens_try( ),..nqueens_aux( )}` code - `nqueens_try` tries the selected column `c` and then `nqueens_aux( )` recursively tries the remaining columns. Also the `{..x,..y}` is the pattern for joining two lists together.
+* `col_so_far` and `col_todo` between them are the columns not filled yet.
+
+There is also a variant of this `nqueens_bitmask.rw` in the `tests` directory, that does the same thing, but using bitmasks for the `col_so_far` and `col_todo` instead of lists. In that example, `count_trailing_zeros` is an operator that will count the number of trailing zeros in the binary form of a number.
 
 ## Road map
 
