@@ -69,7 +69,7 @@ struct Rule {
 class Program {
 public:
     Program(std::string_view source);
-    std::vector<DataElement> run(const std::string& fn, const std::vector<DataElement>& args) const;
+    //std::vector<DataElement> run(const std::string& fn, const std::vector<DataElement>& args) const;
     std::vector<DataElement> run_string(std::string& call);
 private:
     void do_call_single(const Expression& expression, const std::vector<DataElement>& bindings, std::vector<DataElement>& sofar) const;

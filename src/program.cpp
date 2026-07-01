@@ -184,6 +184,14 @@ void Program::do_call_function(uint32_t op, std::vector<DataElement>& sofar, std
 // also be used to avoid the goto, but that's extra machinery, where the goto is clear.
 start:
     // first find the right rule set
+    if(op>=program.size()) {
+        for (const auto& [key, val] : function_map) {
+            if (val == op) {
+                throw std::runtime_error(std::format("function not found: {}",key));
+            }
+        }
+        throw std::runtime_error("function not found: <unknown>");
+    }
     const std::vector<Rule>& rules=program[op];
     // find the first match
     for(const Rule& rule: rules) {
@@ -247,8 +255,8 @@ std::vector<DataElement> Program::run_string(std::string& call) {
     return result;
 }
 
-std::vector<DataElement> Program::run(const std::string& fn, const std::vector<DataElement>& args) const {
-    std::vector<DataElement> sofar;
-    do_call_function(function_map.at(fn),sofar,args);
-    return sofar;
-}
+// std::vector<DataElement> Program::run(const std::string& fn, const std::vector<DataElement>& args) const {
+//     std::vector<DataElement> sofar;
+//     do_call_function(function_map.at(fn),sofar,args);
+//     return sofar;
+// }
