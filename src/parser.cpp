@@ -27,6 +27,8 @@
 const std::unordered_map<std::string, TokenKind> library_map = {
     {"count_trailing_zeros", CountTrailingZeros},
     {"pop_count", PopCount},
+    {"char_to_int", CharToInt},
+    {"int_to_char", IntToChar},
     {"print", Print},
     {"println", PrintLn},
     {"println_debug", PrintLnDebug},
@@ -57,6 +59,7 @@ std::string token_kind_to_string(TokenKind& t) {
         case LBrace : return "{";
         case RBrace : return "}";
         case Semicolon : return ";";
+        case Comma : return ",";
         default: return "unknown";
     }
 }

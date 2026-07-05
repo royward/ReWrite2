@@ -8,10 +8,12 @@ All notable changes to this project will be documented in this file.
 - # and ## to report runtime errors
 - const support
 - added library functions print, println, println_debug, pop_count, load_text_file, save_text_file
+- added library functions char_to_int, int_to_char
 
 ### Changed
 - Renumbered phases in README. Current phase is now 0
 - count_trailing_zeros is a proper function rather than operator
+- support for char-char (returns int)
 
 ### Fixed
 - Fixed arg checking on library functions

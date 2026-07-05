@@ -39,7 +39,7 @@ const ShiftRight=36;
 const Splat=37;
 const Times=38;
 const True=39;
-const UnsignedInteger=40;
+const Integer=40;
 const Wildcard=41;
 const Xor=42;
 const String=43;
@@ -57,8 +57,7 @@ lexer(s) -> lexer_aux({},0,0,s);
 
 lexer_aux(acc,_,_,{}) -> acc;
 lexer_aux(acc,row,col,{c,..rest})::is_start_token(c) -> lex_get_token(acc,row,col,col+1,{c},rest);
-lexer_aux(acc,row,col,{c,..rest})::is_digit(c) -> lex_get_digit(false,acc,row,col,col+1,{c},rest);
-lexer_aux(acc,row,col,{'-',c,..rest})::is_digit(c) -> lex_get_digit(true,acc,row,col,col+2,{c},rest);
+lexer_aux(acc,row,col,{c,..rest})::is_digit(c) -> lex_get_digit(acc,row,col,col+1,{c},rest);
 lexer_aux(acc,row,col,{c,..rest})::is_whitespace(c) -> lexer_aux(acc,row,col+1,rest);
 lexer_aux(acc,row,col,{'//',..rest}) -> lexer_aux_absorb_comment(acc,row,rest);
 lexer_aux(acc,row,col,{'\n',..rest}) -> lexer_aux(acc,row+1,0,rest);
@@ -73,13 +72,11 @@ lex_get_token(acc,row,start_col,col,sofar,rest) -> lexer_aux({..acc,{row,start_c
 lex_check_spec_identifier("true") -> True,"true";
 lex_check_spec_identifier("false") -> False,"false";
 lex_check_spec_identifier("const") -> ConstToken,"const";
+lex_check_spec_identifier("_") -> Wildcard,"_";
 lex_check_spec_identifier(x) -> Identifier,x;
 
-lex_get_digit(neg,acc,row,start_col,col,sofar,{c,..rest})::is_digit(c) -> lex_get_digit(neg,acc,row,start_col,col+1,{..sofar,c},rest);
-lex_get_digit(neg,acc,row,start_col,col,sofar,rest) -> lexer_aux({..acc,{row,start_col,UnsignedInteger,{..lex_add_sign(neg),..sofar}}},row,col,rest);
-
-lex_add_sign(true) -> "-";
-lex_add_sign(false) -> "";
+lex_get_digit(acc,row,start_col,col,sofar,{c,..rest})::is_digit(c) -> lex_get_digit(acc,row,start_col,col+1,{..sofar,c},rest);
+lex_get_digit(acc,row,start_col,col,sofar,rest) -> lexer_aux({..acc,{row,start_col,Integer,sofar}},row,col,rest);
 
 lexer_aux_absorb_comment(acc,row,{}) -> lexer_aux(acc,row+1,0,{});
 lexer_aux_absorb_comment(acc,row,{'\n',..rest}) -> lexer_aux(acc,row+1,0,rest);
@@ -137,4 +134,113 @@ lexer_one_symbol('*') -> Times;
 lexer_one_symbol('^') -> Xor;
 lexer_one_symbol(_) -> 0;
 
+// parsing - the program list has three elements:
+// - the list of lists of rules
+// - the function name associative list
+// - the constant associative list
 
+const TypeBool=1;
+const TypeInt=2;
+const TypeChar=3;
+const TypeList=4;
+
+const ParamConst=1;
+const ParamId=2;
+const ParamWild=3;
+const ParamList=4;
+const ParamSplat=5;
+const ParamSplatWild=6;
+
+const ExprConst=1;
+const ExprId=2;
+const ExprList=4;
+const ExprSplat=5;
+const ExprCall=7;
+const ExprCallInternal=8;
+const ExprCallLibrary=9;
+const ExprNever=10;
+
+string_to_int_pos({},acc) -> acc;
+string_to_int_pos({c,..rest},acc) -> string_to_int_pos(rest,acc*10+(c-'0'));
+
+parse(s) -> parse_aux({},{},{},println_debug(lexer(s)));
+
+get_add_symbol_table(n,sofar,{},val) -> {..sofar,val},n;
+get_add_symbol_table(n,sofar,{val,..rest},val) -> {..sofar,val,..rest},n;
+get_add_symbol_table(n,sofar,{x,..rest},val) -> get_add_symbol_table(n+1,{..sofar,x},rest);
+
+get_symbol_table(n,{val,..rest},val) -> n;
+get_symbol_table(n,{x,..rest},val) -> get_symbol_table(n+1,rest,val);
+
+add_rule(sofar,{},n,x) -> add_rule(sofar,{{}},n,x);
+add_rule(sofar,{r,..rest},0,x) -> {..sofar,{..r,x},..rest};
+add_rule(sofar,{r,..rest},n,x) -> add_rule({..sofar,r},rest,n-1,x);
+
+parse_aux(rules,fnnames,consts,{}) -> {rules,fnnames,consts};
+parse_aux(rules,fnnames,consts,{{_,_,Identifier,name},{_,_,LParen,_},..rest}) -> parse_function(rules,get_add_symbol_table(0,{},fnnames,name),consts,parse_params({},{},RParen,rest));
+// TODO consts parse_aux(rules,fnnames,consts,{{_,_,ConstToken,name}{_,_,Identifier,name},{_,_,Equals,_},..rest}) -> parse_aux(rules,fn_names,parse_constant(const,rest));
+
+parse_function(rules,fnnames,fn_id,consts,bindings,params,{{_,_,Arrow,_},..rest}) -> parse_function2(rules,fnnames,fn_id,consts,bindings,params,parse_expressions(bindings,{},0,Semicolon,rest));
+
+parse_function2(rules,fnnames,fn_id,consts,bindings,params,rhs,{{_,_,Semicolon,_},..rest}) -> parse_aux(add_rule({},rules,fn_id,{bindings,params,{},rhs}),fnnames,consts,rest);
+
+parse_expressions(bindings,sofar,_,end_tok,{{r,c,end_tok,v},..rest}) -> sofar,{{r,c,end_tok,v},..rest};
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Minus,_},{_,_,Integer,val},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeInt,-string_to_int_pos(val,0)}},pri,end_tok,rest);
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Integer,val},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeInt,string_to_int_pos(val,0)}},pri,end_tok,rest);
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,False,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeBool,0}},pri,end_tok,rest);
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,True,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeBool,1}},pri,end_tok,rest);
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Identifier,id},{_,_,LParen,_},..rest}) -> parse_expressions_fun_call(bindings,sofar,pri,end_tok,id,parse_expressions(bindings,{},0,RParen,rest));
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Identifier,id},..rest}) -> parse_expressions1(bindings,sofar,{ExprId,{get_symbol_table(0,bindings,id)}},pri,end_tok,rest);
+
+parse_expressions(bindings,sofar,pri,end_tok,{{_,_,tok,_},..rest})::prefix_binding_power(tok)>0 ->
+    parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,parse_expressions(bindings,{},prefix_binding_power(tok),end_tok,rest));
+
+parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,{new},rest) -> parse_expressions1(bindings,sofar,{tok,new},pri,end_tok,rest);
+
+parse_expressions_fun_call(bindings,sofar,pri,end_tok,id,arguments,{{_,_,RParen,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprCall,id,arguments},pri,end_tok,rest);
+
+parse_expressions1(bindings,sofar,this,pri,end_tok,{{r,c,tok,val},..rest}) -> parse_expressions1a(bindings,sofar,this,pri,infix_binding_power(tok),end_tok,{{r,c,tok,val},..rest});
+
+parse_expressions1a(bindings,sofar,this,pri,infix1,_,end_tok,rest)::infix1<pri -> parse_expressions(bindings,{..sofar,this},0,end_tok,rest);
+parse_expressions1a(bindings,sofar,this,pri,_,infix2,end_tok,{{_,_,tok,_},..rest}) -> parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,parse_expressions(bindings,{},infix2,end_tok,rest));
+
+parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,{new},rest) -> parse_expressions1(bindings,sofar,{ExprCallInternal,{tok,this,new}},pri,end_tok,rest);
+
+prefix_binding_power(Minus) -> 110;
+prefix_binding_power(Not) -> 110;
+prefix_binding_power(_) -> -1;
+
+infix_binding_power(OrOr) -> 10,11;
+infix_binding_power(AndAnd) -> 30,31;
+infix_binding_power(EqualEqual) -> 50,51;
+infix_binding_power(NotEqual) -> 50,51;
+infix_binding_power(Less) -> 50,51;
+infix_binding_power(Greater) -> 50,51;
+infix_binding_power(LessEqual) -> 50,51;
+infix_binding_power(GreaterEqual) -> 50,51;
+infix_binding_power(Or) -> 70,71;
+infix_binding_power(Xor) -> 90,91;
+infix_binding_power(And) -> 110,111;
+infix_binding_power(ShiftLeft) -> 130,131;
+infix_binding_power(ShiftRight) -> 130,131;
+infix_binding_power(Plus) -> 150,151;
+infix_binding_power(Minus) -> 150,151;
+infix_binding_power(Times) -> 170,171;
+infix_binding_power(Divide) -> 170,171;
+infix_binding_power(Modulus) -> 170,171;
+infix_binding_power(_) -> -1,-1;
+
+parse_params(bindings,params,endtok,{{_,_,endtok,_},..rest}) -> bindings,params,rest;
+parse_params(bindings,params,endtok,{{_,_,False,_},..rest}) -> parse_params1(bindings,{..params,{ParamConst,{TypeBool,0}}},endtok,rest);
+parse_params(bindings,params,endtok,{{_,_,True,_},..rest}) -> parse_params1(bindings,{..params,{ParamConst,{TypeBool,1}}},endtok,rest);
+parse_params(bindings,params,endtok,{{_,_,Integer,val},..rest}) -> parse_params1(bindings,{..params,{ParamConst,{TypeInt,string_to_int_pos(val,0)}}},endtok,rest);
+parse_params(bindings,params,endtok,{{_,_,Minus,val},{_,_,Integer,val},..rest}) -> parse_params1(bindings,{..params,{ParamConst,{TypeInt,-string_to_int_pos(val,0)}}},endtok,rest);
+parse_params(bindings,params,endtok,{{_,_,Wildcard,_},..rest}) -> parse_params1(bindings,{..params,{ParamWild,{}}},endtok,rest);
+parse_params(bindings,params,endtok,{{_,_,Identifier,name},..rest}) -> parse_params_id(get_add_symbol_table(0,{},bindings,name),params,endtok,rest);
+// TODO lists parse_params(bindings,params,endtok,{{_,_,LBrace,_},..rest}) -> ;
+// TODO string, char
+
+parse_params_id(bindings,id,params,endtok,rest) -> parse_params(bindings,{..params,{ParamId,{id}}},endtok,rest);
+
+parse_params1(bindings,params,endtok,{{_,_,Comma,_},..rest}) -> parse_params(bindings,params,endtok,rest);
+parse_params1(bindings,params,endtok,{{_,_,endtok,_},..rest}) -> bindings,params,rest; // deal with no trailing comma

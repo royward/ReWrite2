@@ -66,6 +66,16 @@ void do_call_library(TokenKind op, const std::vector<DataElement>& args, std::ve
             check_type<DataInt>("pop_count",args[0]);
             sofar.push_back(DataElement{DataInt{std::popcount(static_cast<uint64_t>(std::get<DataInt>(args[0].value).value))}});
          } break;
+        case CharToInt: {
+            check_arg_count("char_to_int",args,1);
+            check_type<DataChar>("char_to_int",args[0]);
+            sofar.push_back(DataElement{DataInt{static_cast<int64_t>(std::get<DataChar>(args[0].value).value)}});
+        } break;
+        case IntToChar: {
+            check_arg_count("int_to_char",args,1);
+            check_type<DataInt>("int_to_char", args[0]);
+            sofar.push_back(DataElement{DataChar{static_cast<char>(std::get<DataInt>(args[0].value).value)}});
+        } break;
         case Print: {
             check_arg_count("print",args,1);
             check_type<DataList>("print",args[0]);
@@ -182,25 +192,21 @@ DataElement do_call_internal(TokenKind op, const std::vector<DataElement>& args)
                     return DataElement{DataBool{!compare_equal(arg0,arg1)}};
                 }
                 case Plus: {
-                    if(argtype1!=TYPE_I64) {
-                        throw std::runtime_error(std::format("wrong types plus: {},{}",argtype0,argtype1));
-                    }
-                    if(argtype0==TYPE_I64) {
+                   if(argtype0==TYPE_I64 && argtype1==TYPE_I64) {
                         return DataElement{DataInt{std::get<DataInt>(arg0.value).value+std::get<DataInt>(arg1.value).value}};
-                    } else if(argtype0==TYPE_CHAR) {
+                    } else if(argtype0==TYPE_CHAR && argtype1==TYPE_I64) {
                         return DataElement{DataChar{static_cast<char>(std::get<DataChar>(arg0.value).value+std::get<DataInt>(arg1.value).value)}};
-                    } else {
+                   } else {
                         throw std::runtime_error(std::format("wrong types plus: {},{}",argtype0,argtype1));
                     }
                 }
                case Minus: {
-                    if(argtype1!=TYPE_I64) {
-                        throw std::runtime_error(std::format("wrong types minus: {},{}",argtype0,argtype1));
-                    }
-                    if(argtype0==TYPE_I64) {
+                    if(argtype0==TYPE_I64&& argtype1==TYPE_I64) {
                         return DataElement{DataInt{std::get<DataInt>(arg0.value).value-std::get<DataInt>(arg1.value).value}};
-                    } else if(argtype0==TYPE_CHAR) {
+                    } else if(argtype0==TYPE_CHAR&& argtype1==TYPE_I64) {
                         return DataElement{DataChar{static_cast<char>(std::get<DataChar>(arg0.value).value-std::get<DataInt>(arg1.value).value)}};
+                   } else if(argtype0==TYPE_CHAR&& argtype1==TYPE_CHAR) {
+                        return DataElement{DataInt{static_cast<int>(std::get<DataChar>(arg0.value).value-std::get<DataChar>(arg1.value).value)}};
                     } else {
                         throw std::runtime_error(std::format("wrong types minus: {},{}",argtype0,argtype1));
                     }

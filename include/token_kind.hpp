@@ -68,6 +68,8 @@ enum TokenKind {
     // some functions - these are never used as tokens, but are placeholders for do_call_internal
     CountTrailingZeros,
     PopCount,
+    CharToInt,
+    IntToChar,
     Print,
     PrintLn,
     PrintLnDebug,

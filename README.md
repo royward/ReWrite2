@@ -427,10 +427,7 @@ ReWrite2 development will occur in phases:
 
 #### Phase 0: minimal interpreter
 
-This is mostly done - the only things left to complete this are:
-
-* constants
-* additional library functions required by the phase 1 compiler
+This is nearly done - the only things left to complete this are any additional library functions as required by the phase 1 compiler.
 
 #### Phase 1: compiling to VM
 
@@ -438,6 +435,8 @@ This stage does not involve adding language features, but writing a ReWrite2 pro
 
 * write ReWrite2 -> VM compiler, written in ReWrite2 itself (self-hosting)
 * write the VM (probably in C++ or C - this will be fairly low level)
+
+This is in progress.
 
 #### Phase 2+: strong typing and other features
 

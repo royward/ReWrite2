@@ -1,0 +1,8 @@
+// Example: Convert a string to an integer
+// SPDX-License-Identifier: CC0-1.0
+
+string_to_int({'-',..rest}) -> -string_to_int_pos(rest,0);
+string_to_int(s) -> string_to_int_pos(s,0);
+
+string_to_int_pos({},acc) -> acc;
+string_to_int_pos({c,..rest},acc) -> string_to_int_pos(rest,acc*10+(c-'0'));
