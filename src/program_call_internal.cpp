@@ -96,6 +96,7 @@ void do_call_library(TokenKind op, const std::vector<DataElement>& args, std::ve
             putchar('\n');
         } break;
         case PrintLnDebug: {
+            std::print("Debug:");
             // prints all args and returns them unchanged - can be inserted anywhere for debugging
             for(std::size_t i=0;i<args.size();i++) {
                 if(i!=0)putchar(',');

@@ -180,31 +180,32 @@ parse_aux(rules,fnnames,consts,{}) -> {rules,fnnames,consts};
 parse_aux(rules,fnnames,consts,{{_,_,Identifier,name},{_,_,LParen,_},..rest}) -> parse_function(rules,get_add_symbol_table(0,{},fnnames,name),consts,parse_params({},{},RParen,rest));
 // TODO consts parse_aux(rules,fnnames,consts,{{_,_,ConstToken,name}{_,_,Identifier,name},{_,_,Equals,_},..rest}) -> parse_aux(rules,fn_names,parse_constant(const,rest));
 
-parse_function(rules,fnnames,fn_id,consts,bindings,params,{{_,_,Arrow,_},..rest}) -> parse_function2(rules,fnnames,fn_id,consts,bindings,params,parse_expressions(bindings,{},0,Semicolon,rest));
+parse_function(rules,fnnames,fn_id,consts,bindings,params,{{_,_,Arrow,_},..rest}) -> parse_function2(rules,fn_id,consts,bindings,params,parse_expressions(fnnames,bindings,{},0,Semicolon,rest));
 
-parse_function2(rules,fnnames,fn_id,consts,bindings,params,rhs,{{_,_,Semicolon,_},..rest}) -> parse_aux(add_rule({},rules,fn_id,{bindings,params,{},rhs}),fnnames,consts,rest);
+parse_function2(rules,fn_id,consts,bindings,params,fnnames,rhs,{{_,_,Semicolon,_},..rest}) -> parse_aux(add_rule({},rules,fn_id,{bindings,params,{},rhs}),fnnames,consts,rest);
 
-parse_expressions(bindings,sofar,_,end_tok,{{r,c,end_tok,v},..rest}) -> sofar,{{r,c,end_tok,v},..rest};
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Minus,_},{_,_,Integer,val},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeInt,-string_to_int_pos(val,0)}},pri,end_tok,rest);
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Integer,val},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeInt,string_to_int_pos(val,0)}},pri,end_tok,rest);
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,False,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeBool,0}},pri,end_tok,rest);
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,True,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprConst,{TypeBool,1}},pri,end_tok,rest);
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Identifier,id},{_,_,LParen,_},..rest}) -> parse_expressions_fun_call(bindings,sofar,pri,end_tok,id,parse_expressions(bindings,{},0,RParen,rest));
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,Identifier,id},..rest}) -> parse_expressions1(bindings,sofar,{ExprId,{get_symbol_table(0,bindings,id)}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,_,end_tok,{{r,c,end_tok,v},..rest}) -> fnnames,sofar,{{r,c,end_tok,v},..rest};
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,Minus,_},{_,_,Integer,val},..rest}) -> parse_expressions1(fnnames,bindings,sofar,{ExprConst,{TypeInt,-string_to_int_pos(val,0)}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,Integer,val},..rest}) -> parse_expressions1(fnnames,bindings,sofar,{ExprConst,{TypeInt,string_to_int_pos(val,0)}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,False,_},..rest}) -> parse_expressions1(fnnames,bindings,sofar,{ExprConst,{TypeBool,0}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,True,_},..rest}) -> parse_expressions1(fnnames,bindings,sofar,{ExprConst,{TypeBool,1}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,Identifier,id},{_,_,LParen,_},..rest}) -> parse_expressions_fun_call1(bindings,sofar,pri,end_tok,id,parse_expressions(fnnames,bindings,{},0,RParen,rest));
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,Identifier,id},..rest}) -> parse_expressions1(fnnames,bindings,sofar,{ExprId,{get_symbol_table(0,bindings,id)}},pri,end_tok,rest);
+parse_expressions(fnnames,bindings,sofar,pri,end_tok,{{_,_,tok,_},..rest})::prefix_binding_power(tok)>0 ->
+    parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,parse_expressions(fnnames,bindings,{},prefix_binding_power(tok),end_tok,rest));
 
-parse_expressions(bindings,sofar,pri,end_tok,{{_,_,tok,_},..rest})::prefix_binding_power(tok)>0 ->
-    parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,parse_expressions(bindings,{},prefix_binding_power(tok),end_tok,rest));
+parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,fnnames,{new},rest) -> parse_expressions1(fnnames,bindings,sofar,{tok,new},pri,end_tok,rest);
 
-parse_expressions_prefix(bindings,sofar,pri,tok,end_tok,{new},rest) -> parse_expressions1(bindings,sofar,{tok,new},pri,end_tok,rest);
+parse_expressions_fun_call1(bindings,sofar,pri,end_tok,id,fnnames,arguments,{{_,_,RParen,_},..rest}) -> parse_expressions_fun_call2(bindings,sofar,pri,end_tok,get_add_symbol_table(0,{},fnnames,id),arguments,rest);
 
-parse_expressions_fun_call(bindings,sofar,pri,end_tok,id,arguments,{{_,_,RParen,_},..rest}) -> parse_expressions1(bindings,sofar,{ExprCall,id,arguments},pri,end_tok,rest);
+parse_expressions_fun_call2(bindings,sofar,pri,end_tok,fnnames,id,arguments,rest) -> parse_expressions1(fnnames,bindings,sofar,{ExprCall,id,arguments},pri,end_tok,rest);
 
-parse_expressions1(bindings,sofar,this,pri,end_tok,{{r,c,tok,val},..rest}) -> parse_expressions1a(bindings,sofar,this,pri,infix_binding_power(tok),end_tok,{{r,c,tok,val},..rest});
+parse_expressions1(fnnames,bindings,sofar,this,pri,end_tok,{{r,c,tok,val},..rest}) -> parse_expressions1a(fnnames,bindings,sofar,this,pri,infix_binding_power(tok),end_tok,{{r,c,tok,val},..rest});
 
-parse_expressions1a(bindings,sofar,this,pri,infix1,_,end_tok,rest)::infix1<pri -> parse_expressions(bindings,{..sofar,this},0,end_tok,rest);
-parse_expressions1a(bindings,sofar,this,pri,_,infix2,end_tok,{{_,_,tok,_},..rest}) -> parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,parse_expressions(bindings,{},infix2,end_tok,rest));
+parse_expressions1a(fnnames,bindings,sofar,this,pri,infix1,_,end_tok,rest)::infix1<pri -> parse_expressions(fnnames,bindings,{..sofar,this},0,end_tok,rest);
+parse_expressions1a(fnnames,bindings,sofar,this,pri,_,infix2,end_tok,{{_,_,tok,_},..rest}) -> parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,parse_expressions(fnnames,bindings,{},infix2,end_tok,rest));
 
-parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,{new},rest) -> parse_expressions1(bindings,sofar,{ExprCallInternal,{tok,this,new}},pri,end_tok,rest);
+parse_expressions1b(bindings,sofar,this,tok,pri,end_tok,fnnames,{new},rest) -> parse_expressions1(fnnames,bindings,sofar,{ExprCallInternal,{tok,this,new}},pri,end_tok,rest);
 
 prefix_binding_power(Minus) -> 110;
 prefix_binding_power(Not) -> 110;
