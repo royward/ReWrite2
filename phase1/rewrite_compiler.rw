@@ -46,6 +46,8 @@ const String=43;
 const Chars=44;
 const Match=45;
 const Then=46;
+const Type=47;
+const TypeFn=48;
 
 is_start_token(c) -> c=='_' || (c>='a' && c<='z') || (c>='A' && c<='Z');
 
@@ -77,6 +79,7 @@ lex_check_spec_identifier("false") -> False;
 lex_check_spec_identifier("const") -> ConstToken;
 lex_check_spec_identifier("match") -> Match;
 lex_check_spec_identifier("then") -> Then;
+lex_check_spec_identifier("type") -> Type;
 lex_check_spec_identifier("_") -> Wildcard;
 lex_check_spec_identifier(x) -> Identifier;
 
@@ -100,6 +103,7 @@ lexer_string(row,col,sofar,endtok,{c,..rest}) -> lexer_string(row,col+1,{..sofar
 lexer_two_symbol('&&') -> AndAnd;
 lexer_two_symbol('->') -> Arrow;
 lexer_two_symbol('::') -> ColonColon;
+lexer_two_symbol(':-') -> TypeFn;
 lexer_two_symbol('==') -> EqualEqual;
 lexer_two_symbol('>=') -> GreaterEqual;
 lexer_two_symbol('<=') -> LessEqual;
@@ -162,6 +166,7 @@ string_to_int_pos({c,..rest},acc) -> string_to_int_pos(rest,acc*10+(c-'0'));
 
 parse(s) -> parse_aux({},{},{},println_debug(lexer(s)));
 
+// get and add for a straight list of string
 get_add_symbol_list(n,sofar,{},val) -> {..sofar,val},n;
 get_add_symbol_list(n,sofar,{val,..rest},val) -> {..sofar,val,..rest},n;
 get_add_symbol_list(n,sofar,{x,..rest},val) -> get_add_symbol_list(n+1,{..sofar,x},rest,val);
@@ -170,6 +175,7 @@ get_symbol_list(n,{val,..rest},val) -> n;
 get_symbol_list(n,{x,..rest},val) -> get_symbol_list(n+1,rest,val);
 get_symbol_list(.._) -> #error;
 
+// get and add for a list of {string,val}
 add_symbol_table(done,{},name,val) -> {..done,{name,val}};
 add_symbol_table(done,{{name,_},..rest},name,val) -> #error; // already there - should not happen
 add_symbol_table(done,{{n,v},..rest},name,val) -> add_symbol_table({..done,{n,v}},rest,name,val);
@@ -177,6 +183,14 @@ add_symbol_table(done,{{n,v},..rest},name,val) -> add_symbol_table({..done,{n,v}
 lookup_symbol_table({},name) -> false,0;
 lookup_symbol_table({{name,val},.._},name) -> true,val;
 lookup_symbol_table({_,..rest},name) -> lookup_symbol_table(rest,name);
+
+// get/add for a list of {string,val}
+// where the value 'false' is special, and can be replaced by another structure
+get_add_symbol_table(n,sofar,{},key,val) -> {..sofar,{key,val}},n;
+get_add_symbol_table(n,sofar,{{key,false},..rest},key,val) -> {..sofar,{key,val},..rest},n; // keep the non-false value
+get_add_symbol_table(n,sofar,{{key,val},..rest},key,false) -> {..sofar,{key,val},..rest},n; // keep the non-false value
+get_add_symbol_table(n,sofar,{{key,val},..rest},key,val) -> {..sofar,{key,val},..rest},n;
+get_add_symbol_table(n,sofar,{x,..rest},key,val) -> get_add_symbol_table(n+1,{..sofar,x},rest,key,val);
 
 parse_aux(rules,fnnames,consts,{}) -> {rules,fnnames,consts};
 parse_aux(rules,fnnames,consts,{{_,_,Identifier,name},{_,_,LParen,_},..rest}) ->

@@ -75,6 +75,12 @@ std::vector<Token> lex(std::string_view program) {
                     token_kind=Match;
                 } else if(sub=="then") {
                     token_kind=Then;
+                } else if(sub=="type") {
+                    while(p<len && program[p]!=';') {
+                        p++;
+                    }
+                    if(p<len)p++;
+                    continue; // ignoring type information
                 } else {
                     token_kind=Identifier;
                 }
@@ -169,6 +175,12 @@ std::vector<Token> lex(std::string_view program) {
                     if(p<len && program[p]==':') {
                         p++;
                         token_kind=ColonColon;
+                    } else if(p<len && program[p]=='-') {
+                        while(p<len && program[p]!=';') {
+                            p++;
+                        }
+                        if(p<len)p++;
+                        continue; // ignoring type information
                     } else {
                         token_kind=Colon;
                     }
