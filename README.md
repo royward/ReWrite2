@@ -15,7 +15,7 @@ A rule-based language for expressing recursive computation through pattern match
   - [Multiple Return Values](#multiple-return-values)
   - [Lists and Splat](#lists-and-splat)
   - [Chars and Strings](#chars-and-strings)
-  - [Match/Update Clauses](#match-update-clauses)
+  - [Match/Update Clauses](#matchupdate-clauses)
   - [Constants](#constants)
   - [Errors](#errors)
   - [Tail Recursion](#tail-recursion)
@@ -138,7 +138,7 @@ The structure of a ReWrite program is simple - it is a list of functions, where 
 <function_name>(<pattern>)[::<guard expression>] -> <expressions>;
 ```
 
-`[ ]` means that the part enclosed is optional. See [Match/Update Clauses](#match-update-clauses) for a more complete syntax.
+`[ ]` means that the part enclosed is optional. See [Match/Update Clauses](#matchupdate-clauses) for a more complete syntax.
 
 The language just fires the first rule that successfully matches (it is a runtime error if none of them fire - later versions might make this a compile time error).
 
@@ -167,7 +167,7 @@ The first rule will fire if `n` is matched (which will match to any single argum
 
 The `_` is a special symbol that means "match with anything". Unlike a named parameter, it doesn't bind to anything, so you can use multiple `_` in the same rule without conflict.
 
-See [Match/Update Clauses](#match-update-clauses) for a generalization of guards.
+See [Match/Update Clauses](#matchupdate-clauses) for a generalization of guards.
 
 #### Pattern matching
 

@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - `in` to `then`
 - `match <pattern>=<exprs>` changed to `match <exprs> => <pattern>`
 - Provided `update` that does matching with variable rebinding
+- interpreter ignores likes starting with `:-` or `type` (type definitions)
 
 ### Fixed
 - deal with negative numbers correctly on left hand side
