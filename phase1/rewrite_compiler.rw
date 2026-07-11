@@ -154,10 +154,19 @@ lexer_one_symbol(_) -> 0;
 // - the function name associative list
 // - the constant associative list
 
-const TypeBool=1;
-const TypeI64=2;
+const TypeList=1;
+const TypeBool=2;
 const TypeChar=3;
-const TypeList=4;
+const TypeI8=4;
+const TypeU8=5;
+const TypeI16=6;
+const TypeU16=7;
+const TypeI32=8;
+const TypeU32=9;
+const TypeI64=10;
+const TypeU64=11;
+const TypeI128=12;
+const TypeU128=13;
 
 const Const=1;
 const ParamId=2;
@@ -375,6 +384,15 @@ compile_aux(n,table,sofar,{rules,..rest}) -> match get_nth(n,table) => {_,bitmas
     compile_aux(n+1,table,{..sofar,compile_function({},rules,bitmask_left,type_left,bitmask_right,type_right)},rest);
 
 compile_function(sofar,{},_,_,_,_) -> sofar;
-compile_function(sofar,{rule,..rest},bitmask_left,type_left,bitmask_right,type_right) -> compile_rule({},..rule,bitmask_left,type_left,bitmask_right,type_right);
+compile_function(sofar,{rule,..rest},bitmask_left,type_left,bitmask_right,type_right) ->
+    match rule => {bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs} then
+    compile_rule({},create_compiler_bindings({},bindings),params,pre_arrow_clauses,post_arrow_clauses,exprs,bitmask_left,type_left,bitmask_right,type_right);
 
-//compile_rule(sofar,bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs) ->
+create_compiler_bindings(sofar,{}) -> sofar;
+create_compiler_bindings(sofar,{n,..rest}) -> create_compiler_bindings({..sofar,{n,0,0}},rest);
+
+compile_rule(sofar,bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs) ->
+    update generate_param_code({},bindings,params) => bindings,code then #error;
+
+generate_param_code(sofar,bindings,{}) -> bindings,sofar;
+generate_param_code(sofar,bindings,{{Const,tp,val},..rest}) -> #error;
