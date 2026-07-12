@@ -91,7 +91,7 @@ cmake -S . -B build/release -DCMAKE_BUILD_TYPE=Release
 cmake --build build/release
 ```
 
-The binary will be at `build/release/rewrite_cpp`.
+The binary will be at `build/release/phase0_interpreter/rewrite_cpp`.
 
 For a debug build:
 
@@ -104,7 +104,7 @@ I welcome bug reports if there is some issue where it won't build on another pla
 
 Note that the phase 0 interpreter is not optimised for performance - it is merely a vehicle to bootstrap to phase 1 and beyond, where performance issues will be addressed.
 
-Note that once ReWrite builds itself in phase 1 and beyond, compiling the VM will not require C++-23 - probably C++17 at most.
+Note that once ReWrite builds itself in phase 1 and beyond, the VM is written in C and has no C++ dependency.
 
 ## Usage
 

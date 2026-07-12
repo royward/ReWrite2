@@ -155,6 +155,22 @@ void do_call_library(TokenKind op, const std::vector<DataElement>& args, std::ve
             }
         } break;
         case SaveBinaryFile: {
+            check_arg_count("save_binary_file", args, 2);
+            check_type<DataList>("save_text_file",args[0]);
+            check_type<DataList>("save_text_file",args[1]);
+            const DataList& filename_list = std::get<DataList>(args[0].value);
+            std::string filename;
+            for(const DataElement& e : filename_list.value) {
+                check_type<DataChar>("save_text_file",e);
+                filename += std::get<DataChar>(e.value).value;
+            }
+            const DataList& content = std::get<DataList>(args[1].value);
+            std::ofstream file(filename, std::ios::out | std::ios::binary);
+            for(const DataElement& e : content.value) {
+                check_type<DataInt>("save_binary_file", e);
+                uint8_t byte = static_cast<uint8_t>(std::get<DataInt>(e.value).value);
+                file.write(reinterpret_cast<const char*>(&byte), 1);
+            }
         } break;
         default: {
             throw std::runtime_error(std::format("unknown library function: {}",static_cast<int>(op)));
