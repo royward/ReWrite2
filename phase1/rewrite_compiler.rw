@@ -53,6 +53,8 @@ const TypeFn=48;
 const Update=49;
 const DoubleArrow=50;
 
+do_compile(infile,outfile) -> save_binary_file({..outfile,'.rwobj'},compile(parse(load_text_file(infile))));
+
 is_start_token(c) -> c=='_' || (c>='a' && c<='z') || (c>='A' && c<='Z');
 
 is_rest_token(c) -> c=='_' || (c>='a' && c<='z') || (c>='A' && c<='Z') || (c>='0' && c<='9');
@@ -390,6 +392,8 @@ create_start_annotated_list(sofar,{{true,x},..rest}) -> create_start_annotated_l
 create_start_annotated_list(sofar,{{false,x},..rest}) -> create_start_annotated_list({..sofar,{{{},{}},{false,x}}},rest);
 create_start_annotated_list(sofar,{n,..rest}) -> create_start_annotated_list({..sofar,{{{}},n}},rest);
 
+const BindImm=0;
+const BindLabel=0;
 const BindReg=1;
 const BindStack=2;
 
@@ -421,15 +425,12 @@ const OpSize4=2;
 const OpSize8=3;
 const OpSize16=4;
 
-const OpFlagImm=0;
-const OpFlagLabel=0;
-
 const OpLabel=1;
 const OpError=2;
 const OpRet=3;
-const OpCompareNotEqualBranch=8;
-const OpCompareEqualBranch=16;
-const OpStore=24;
+const OpCompareNotEqualBranch=240;
+const OpCompareEqualBranch=248;
+const OpMove=16;
 
 compile_aux(label_id,_,_,sofar,{}) -> convert_to_binary({},sofar);
 compile_aux(label_id,n,table,sofar,{rules,..rest}) ->
@@ -437,7 +438,7 @@ compile_aux(label_id,n,table,sofar,{rules,..rest}) ->
     update compile_function(label_id,n,0,{},rules,max(maxreg1,maxreg2),bitmask_or({},bitmask1,bitmask2),type_left,type_right) => label_id,code then
     compile_aux(label_id,n+1,table,{..sofar,..code},rest);
 
-compile_function(label_id,fn_id,rule_id,sofar,{},_,_,_,_) -> label_id,{..sofar,{fn_id,rule_id,OpError,0}};
+compile_function(label_id,fn_id,rule_id,sofar,{},_,_,_,_) -> label_id+1,{..sofar,{fn_id,rule_id,OpLabel,0,BindLabel,label_id},{fn_id,rule_id,OpError,0}};
 compile_function(label_id,fn_id,rule_id,sofar,{rule,..rest},maxregs,bitmask,type_left,type_right) ->
     match rule => {bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs}
     update compile_rule(label_id,fn_id,rule_id,{},create_compiler_bindings({},bindings),params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) => label_id,code then
@@ -447,7 +448,7 @@ create_compiler_bindings(sofar,{}) -> sofar;
 create_compiler_bindings(sofar,{n,..rest}) -> create_compiler_bindings({..sofar,{{0,0},n}},rest);
 
 compile_rule(label_id,fn_id,rule_id,sofar,bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) ->
-    update generate_param_code(label_id,fn_id,rule_id,{{fn_id,rule_id,OpLabel,0,OpFlagLabel,label_id}},bindings,type_left,params) => label_id,bindings,code
+    update generate_param_code(label_id,fn_id,rule_id,{{fn_id,rule_id,OpLabel,0,BindLabel,label_id}},bindings,type_left,params) => label_id,bindings,code
     update generate_expr_code(fn_id,rule_id,code,bindings,type_right,exprs) => code then
     label_id,{..code,{fn_id,rule_id,OpRet,0}};
 
@@ -457,11 +458,11 @@ get_scalar_type_size(TypeI64) -> OpSize8;
 
 generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{},{}) -> label_id+1,bindings,sofar;
 generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{Const,{tp,val}},..rest}) ->
-    generate_param_code(label_id,fn_id,rule_id,{..sofar,{fn_id,rule_id,get_scalar_type_size(tp)+OpCompareNotEqualBranch,0,OpFlagLabel,label_id+1,src_flag,src,0,val}},bindings,type_left,rest);
+    generate_param_code(label_id,fn_id,rule_id,{..sofar,{fn_id,rule_id,get_scalar_type_size(tp)+OpCompareNotEqualBranch,0,BindLabel,label_id+1,src_flag,src,BindImm,val}},bindings,type_left,rest);
 
 generate_expr_code(fn_id,rule_id,code,bindings,{},{}) -> code;
 generate_expr_code(fn_id,rule_id,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{Const,{tp,val}},..rest}) ->
-    generate_expr_code(fn_id,rule_id,{..sofar,{fn_id,rule_id,get_scalar_type_size(tp)+OpStore,0,0,0,src_flag,src,0,val}},bindings,type_left,rest);
+    generate_expr_code(fn_id,rule_id,{..sofar,{fn_id,rule_id,get_scalar_type_size(tp)+OpMove,0,src_flag,src,BindImm,val}},bindings,type_left,rest);
 
 convert_to_binary(sofar,{}) -> sofar;
 convert_to_binary(sofar,{instr,..rest}) -> convert_to_binary({..sofar,..emit_instruction(instr)},rest);
@@ -474,23 +475,3 @@ emit_instruction({fn_id,rule_id,op,tp,flags_dst,dst,flags_src1,src1,flags_src2,s
 
 emitb(0,sofar,_) -> sofar;
 emitb(n,sofar,v) -> emitb(n-1,{..sofar,v&255},v>>8);
-// struct Operation {
-// // 0
-//     uint8_t op;
-//     uint8_t type;
-//     uint16_t fn_id;
-// // 4
-//     uint8_t rule_id;
-//     uint8_t flags_dst;
-//     uint8_t flags_src1;
-//     uint8_t flags_src2;
-// // 8
-//     uint32_t dst;
-//     uint32_t src1;
-// // 16
-//     int64_t src2;
-// // 24
-//     uint64_t reserved1;  // available for future use
-// // 32
-// };
-
