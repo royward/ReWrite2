@@ -192,7 +192,7 @@ const ExprNever=10;
 string_to_int_pos({},acc) -> acc;
 string_to_int_pos({c,..rest},acc) -> string_to_int_pos(rest,acc*10+(c-'0'));
 
-parse(s) -> parse_aux({},{},{},println_debug(lexer(s)));
+parse(s) -> parse_aux({},{},{},lexer(s));
 
 // get and add for a straight list of string
 get_add_symbol_list(n,sofar,{},val) -> {..sofar,val},n;
@@ -444,30 +444,35 @@ const OpMove=16;
 compile_aux(label_id,_,_,sofar,{}) -> convert_to_binary({},sofar);
 compile_aux(label_id,n,table,sofar,{rules,..rest}) ->
     match get_nth(n,table) => {_,maxreg1,bitmask1,type_left,maxreg2,bitmask2,type_right}
-    update compile_function(label_id,n,0,{},rules,max(maxreg1,maxreg2),bitmask_or({},bitmask1,bitmask2),type_left,type_right) => label_id,code then
+    update compile_function(label_id,n,0,{},rules,max(maxreg1,maxreg2),maxreg2,bitmask_or({},bitmask1,bitmask2),type_left,type_right) => label_id,code then
     compile_aux(label_id,n+1,table,{..sofar,..code},rest);
 
-compile_function(label_id,fn_id,rule_id,sofar,{},_,_,_,_) -> label_id+1,{..sofar,{fn_id,rule_id,OpLabel,0,BindLabel,label_id},{fn_id,rule_id,OpError,0}};
-compile_function(label_id,fn_id,rule_id,sofar,{rule,..rest},maxregs,bitmask,type_left,type_right) ->
+compile_function(label_id,fn_id,rule_id,sofar,{},_,_,_,_,_) -> label_id+1,{..sofar,{fn_id,rule_id,OpLabel,0,BindLabel,label_id},{fn_id,rule_id,OpError,0}};
+compile_function(label_id,fn_id,rule_id,sofar,{rule,..rest},maxregs,max_regs_rhs,bitmask,type_left,type_right) ->
     match rule => {bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs}
-    update compile_rule({label_id,fn_id,rule_id,create_compiler_bindings({},bindings)},{},params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) => label_id,code then
-    compile_function(label_id,fn_id,rule_id+1,{..sofar,..code},rest,maxregs,bitmask,type_left,type_right);
+    update compile_rule({label_id,fn_id,rule_id,create_compiler_bindings({},bindings),maxregs,max_regs_rhs,bitmask,{}},{},params,pre_arrow_clauses,post_arrow_clauses,exprs,type_left,type_right) => label_id,code then
+    compile_function(label_id,fn_id,rule_id+1,{..sofar,..code},rest,maxregs,max_regs_rhs,bitmask,type_left,type_right);
 
 create_compiler_bindings(sofar,{}) -> sofar;
 create_compiler_bindings(sofar,{n,..rest}) -> create_compiler_bindings({..sofar,{0,0,{},n}},rest);
 
-// ctx = {label_id,fn_id,rule_id, bindings}
-ctx_fnr({label_id,fn_id,rule_id,bindings}) -> fn_id,rule_id;
-ctx_lbl({label_id,fn_id,rule_id,bindings}) -> label_id;
-ctx_lbl_inc({label_id,fn_id,rule_id,bindings}) -> {label_id+1,fn_id,rule_id,bindings};
-ctx_bindings({label_id,fn_id,rule_id,bindings}) -> bindings;
-ctx_nobindings({label_id,fn_id,rule_id,bindings}) -> {label_id,fn_id,rule_id};
-ctx_newbindings({label_id,fn_id,rule_id,bindings},newbindings) -> {label_id,fn_id,rule_id,newbindings};
+ctx_fnr({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> fn_id,rule_id;
+ctx_lbl({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> label_id;
+ctx_lbl_inc({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> {label_id+1,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs};
+ctx_bindings({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> bindings;
+ctx_newbindings({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs},newbindings) -> {label_id,fn_id,rule_id,newbindings,maxregs,maxreg_rhs,bitmask,bind_rhs};
+ctx_get_maxreg_rhs({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> maxreg_rhs;
+ctx_newreg({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> {label_id,fn_id,rule_id,bindings,maxregs+1,maxreg_rhs,bitmask,bind_rhs},maxregs;
+ctx_bind_rhs({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs},newrhs) -> {label_id,fn_id,rule_id,bindings,maxregs+1,maxreg_rhs,bitmask,{..bind_rhs,newrhs}};
+ctx_get_bind_rhs({label_id,fn_id,rule_id,bindings,maxregs,maxreg_rhs,bitmask,bind_rhs}) -> bind_rhs;
 
-compile_rule(ctx,sofar,params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) ->
+compile_rule(ctx,sofar,params,pre_arrow_clauses,post_arrow_clauses,exprs,type_left,type_right) ->
     update generate_param_code(ctx,{{ctx_fnr(ctx),OpLabel,0,BindLabel,ctx_lbl(ctx)}},type_left,params) => ctx,code
-    update generate_expr_code(ctx,code,type_right,exprs) => code then
-    ctx_lbl(ctx),{..code,{ctx_fnr(ctx),OpRet,0}};
+    update generate_expr_code(ctx,code,type_right,exprs) => ctx,code then
+    ctx_lbl(ctx),{..code,..compile_rhs_final_binding(ctx,{},ctx_get_bind_rhs(ctx)),{ctx_fnr(ctx),OpRet,0}};
+
+compile_rhs_final_binding(_,sofar,{}) -> sofar;
+compile_rhs_final_binding(ctx,sofar,{{tp,src,dst},..rest}) -> compile_rhs_final_binding(ctx,{..sofar,{ctx_fnr(ctx),OpMove+get_scalar_type_size(tp),0,BindReg,dst,BindReg,src}},rest);
 
 get_scalar_type_size(tp) match get_type_size_pri(tp) => {_,sz} -> 63-count_leading_zeros(sz);
 
@@ -483,8 +488,13 @@ generate_bind_variable(ctx,0,src_flag,src,tp,sofar_bindings,{{0,_,_,name},..bind
 generate_bind_variable(ctx,0,src_flag,src,tp,_,{{_,tp,{src_flag2,src2},name},.._}) ->
     ctx,{{ctx_fnr(ctx),OpCompareNotEqualBranch+get_scalar_type_size(tp),0,BindLabel,ctx_lbl(ctx)+1,src_flag,src,src_flag2,src2}};
 
-generate_expr_code(ctx,code,{},{}) -> code;
+generate_expr_code(ctx,code,{},{}) -> ctx,code;
 // TODO deal with lists splats and calls first
+generate_expr_code(ctx,sofar,{{{{BindReg,dst}},tp},..type_left},{expr,..rest}) :: dst<=ctx_get_maxreg_rhs(ctx) ->
+    match generate_expr_code_aux(ctx,expr) => newcode,tp,src_flag,src
+    update ctx_newreg(ctx) => ctx,newvar
+    update ctx_bind_rhs(ctx,{tp,newvar,dst}) => ctx then
+    generate_expr_code(ctx,{..sofar,..newcode,{ctx_fnr(ctx),OpMove+get_scalar_type_size(tp),0,BindReg,newvar,src_flag,src}},type_left,rest);
 generate_expr_code(ctx,sofar,{{{{dst_flag,dst}},tp},..type_left},{expr,..rest}) ->
     match generate_expr_code_aux(ctx,expr) => newcode,tp,src_flag,src then
     generate_expr_code(ctx,{..sofar,..newcode,{ctx_fnr(ctx),OpMove+get_scalar_type_size(tp),0,dst_flag,dst,src_flag,src}},type_left,rest);
@@ -500,7 +510,6 @@ binop(Divide) -> true,27;
 binop(Modulus) -> true,28;
 binop(_) -> false,0;
 
-//generate_expr_code_infix(0,0,{{1,10,{1,0},"n"}},30,{{{},10,1,0},{{},10,0,1}})
 generate_expr_code_infix(ctx,op,{{code1,tp,src_flag1,src1},{code2,tp,src_flag2,src2}}) match binop(op) => true,machine_op ->
     {..code1,..code2,{ctx_fnr(ctx),machine_op,tp,BindReg,6,src_flag1,src1,src_flag2,src2}},tp,BindReg,6;
 

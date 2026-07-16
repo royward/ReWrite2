@@ -92,6 +92,8 @@ void execution_unload(ExecutionState* exe) {
 #define OP_LABEL 0x01
 #define OP_ERROR 0x02
 #define OP_RET 0x03
+#define OP_CALL 0x04
+#define OP_INC_SP 0x05
 #define OP_MOVE 0x10
 #define OP_PLUS 0x18
 #define OP_MINUS 0x19
@@ -139,7 +141,7 @@ void display_operand(FILE* out, uint8_t flag, int64_t val) {
             fprintf(out,"r%" PRIu64,val);
         } break;
         case BIND_STACK: {
-            fprintf(out,"sp+%" PRIu64,val);
+            fprintf(out,"sp+%" PRId64,val);
         } break;
     }
 }
@@ -206,6 +208,10 @@ void program_disassemble(Program* program, FILE* out) {
             } break;
             case OP_RET: {
                 fprintf(out,"ret");
+            } break;
+            case OP_CALL: {
+                fprintf(out,"call (sp+=%d) ");
+                program_display_label(program,out,operation);
             } break;
             case OP_MOVE: case OP_MOVE+1: case OP_MOVE+2: case OP_MOVE+3: case OP_MOVE+4: {
                 uint32_t sz=1<<(op&7);
