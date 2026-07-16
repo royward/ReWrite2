@@ -450,43 +450,49 @@ compile_aux(label_id,n,table,sofar,{rules,..rest}) ->
 compile_function(label_id,fn_id,rule_id,sofar,{},_,_,_,_) -> label_id+1,{..sofar,{fn_id,rule_id,OpLabel,0,BindLabel,label_id},{fn_id,rule_id,OpError,0}};
 compile_function(label_id,fn_id,rule_id,sofar,{rule,..rest},maxregs,bitmask,type_left,type_right) ->
     match rule => {bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs}
-    update compile_rule(label_id,fn_id,rule_id,{},create_compiler_bindings({},bindings),params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) => label_id,code then
+    update compile_rule({label_id,fn_id,rule_id},{},create_compiler_bindings({},bindings),params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) => label_id,code then
     compile_function(label_id,fn_id,rule_id+1,{..sofar,..code},rest,maxregs,bitmask,type_left,type_right);
 
 create_compiler_bindings(sofar,{}) -> sofar;
 create_compiler_bindings(sofar,{n,..rest}) -> create_compiler_bindings({..sofar,{0,0,{},n}},rest);
 
-compile_rule(label_id,fn_id,rule_id,sofar,bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) ->
-    update generate_param_code(label_id,fn_id,rule_id,{{fn_id,rule_id,OpLabel,0,BindLabel,label_id}},bindings,type_left,params) => label_id,bindings,code
-    update generate_expr_code(fn_id,rule_id,code,bindings,type_right,exprs) => code then
-    label_id,{..code,{fn_id,rule_id,OpRet,0}};
+// ctx = {label_id,fn_id,rule_id}
+
+ctx_fnr({label_id,fn_id,rule_id}) -> fn_id,rule_id;
+ctx_lbl({label_id,fn_id,rule_id}) -> label_id;
+ctx_lbl_inc({label_id,fn_id,rule_id}) -> {label_id+1,fn_id,rule_id};
+
+compile_rule(ctx,sofar,bindings,params,pre_arrow_clauses,post_arrow_clauses,exprs,maxregs,bitmask,type_left,type_right) ->
+    update generate_param_code(ctx,{{ctx_fnr(ctx),OpLabel,0,BindLabel,ctx_lbl(ctx)}},bindings,type_left,params) => {label_id,_,_},bindings,code
+    update generate_expr_code(ctx,code,bindings,type_right,exprs) => code then
+    label_id,{..code,{ctx_fnr(ctx),OpRet,0}};
 
 get_scalar_type_size(tp) match get_type_size_pri(tp) => {_,sz} -> 63-count_leading_zeros(sz);
 
-generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{},{}) -> label_id+1,bindings,sofar;
-generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{Const,{tp,val}},..rest}) ->
-    generate_param_code(label_id,fn_id,rule_id,{..sofar,{fn_id,rule_id,OpCompareNotEqualBranch+get_scalar_type_size(tp),0,BindLabel,label_id+1,src_flag,src,BindImm,val}},bindings,type_left,rest);
-generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{ParamId,{id}},..rest}) ->
-    update generate_bind_variable(label_id,fn_id,rule_id,id,src_flag,src,tp,{},bindings) => label_id,code,bindings then
-    generate_param_code(label_id,fn_id,rule_id,{..sofar,..code},bindings,type_left,rest);
-generate_param_code(label_id,fn_id,rule_id,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{ParamWild,{}},..rest}) -> generate_param_code(label_id,fn_id,rule_id,sofar,bindings,type_left,rest);
+generate_param_code(ctx,sofar,bindings,{},{}) -> ctx_lbl_inc(ctx),bindings,sofar;
+generate_param_code(ctx,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{Const,{tp,val}},..rest}) ->
+    generate_param_code(ctx,{..sofar,{ctx_fnr(ctx),OpCompareNotEqualBranch+get_scalar_type_size(tp),0,BindLabel,ctx_lbl(ctx)+1,src_flag,src,BindImm,val}},bindings,type_left,rest);
+generate_param_code(ctx,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{ParamId,{id}},..rest}) ->
+    update generate_bind_variable(ctx,id,src_flag,src,tp,{},bindings) => ctx,code,bindings then
+    generate_param_code(ctx,{..sofar,..code},bindings,type_left,rest);
+generate_param_code(ctx,sofar,bindings,{{{{src_flag,src}},tp},..type_left},{{ParamWild,{}},..rest}) -> generate_param_code(ctx,sofar,bindings,type_left,rest);
 
-generate_bind_variable(label_id,fn_id,rule_id,0,src_flag,src,tp,sofar_bindings,{{0,_,_,name},..bindings}) -> label_id,{},{..sofar_bindings,{1,tp,{src_flag,src},name},..bindings};
-generate_bind_variable(label_id,fn_id,rule_id,0,src_flag,src,tp,sofar_bindings,{{_,tp,{src_flag2,src2},name},..bindings}) ->
-    label_id,{{fn_id,rule_id,OpCompareNotEqualBranch+get_scalar_type_size(tp),0,BindLabel,label_id+1,src_flag,src,src_flag2,src2}},{..sofar_bindings,{{src_flag2,src2},name},..bindings};
+generate_bind_variable(ctx,0,src_flag,src,tp,sofar_bindings,{{0,_,_,name},..bindings}) -> ctx,{},{..sofar_bindings,{1,tp,{src_flag,src},name},..bindings};
+generate_bind_variable(ctx,0,src_flag,src,tp,sofar_bindings,{{_,tp,{src_flag2,src2},name},..bindings}) ->
+    ctx,{{ctx_fnr(ctx),OpCompareNotEqualBranch+get_scalar_type_size(tp),0,BindLabel,ctx_lbl(ctx)+1,src_flag,src,src_flag2,src2}},{..sofar_bindings,{{src_flag2,src2},name},..bindings};
 
-generate_expr_code(fn_id,rule_id,code,bindings,{},{}) -> code;
+generate_expr_code(ctx,code,bindings,{},{}) -> code;
 // TODO deal with lists splats and calls first
-generate_expr_code(fn_id,rule_id,sofar,bindings,{{{{dst_flag,dst}},tp},..type_left},{expr,..rest}) ->
-    match generate_expr_code_aux(fn_id,rule_id,bindings,expr) => newcode,tp,src_flag,src then
-    generate_expr_code(fn_id,rule_id,{..sofar,..newcode,{fn_id,rule_id,OpMove+get_scalar_type_size(tp),0,dst_flag,dst,src_flag,src}},bindings,type_left,rest);
+generate_expr_code(ctx,sofar,bindings,{{{{dst_flag,dst}},tp},..type_left},{expr,..rest}) ->
+    match generate_expr_code_aux(ctx,bindings,expr) => newcode,tp,src_flag,src then
+    generate_expr_code(ctx,{..sofar,..newcode,{ctx_fnr(ctx),OpMove+get_scalar_type_size(tp),0,dst_flag,dst,src_flag,src}},bindings,type_left,rest);
 
 //generate_expr_code_aux(0,0,{{1,10,{1,0},"n"}},{{1,{10,1}}})
-generate_expr_code_aux(fn_id,rule_id,bindings,{Const,{tp,val}}) -> {},tp,BindImm,val;
-generate_expr_code_aux(fn_id,rule_id,bindings,{ExprId,{id}}) -> match get_nth(id,bindings) => {_,tp,{src_flag,src},_} then {},tp,src_flag,src;
-generate_expr_code_aux(fn_id,rule_id,bindings,{ExprCallInternal,{op,..args}}) ->
-    match generate_expr_code_aux_map(fn_id,rule_id,bindings,{},args) => args_code then
-    generate_expr_code_infix(fn_id,rule_id,bindings,op,args_code);
+generate_expr_code_aux(ctx,bindings,{Const,{tp,val}}) -> {},tp,BindImm,val;
+generate_expr_code_aux(ctx,bindings,{ExprId,{id}}) -> match get_nth(id,bindings) => {_,tp,{src_flag,src},_} then {},tp,src_flag,src;
+generate_expr_code_aux(ctx,bindings,{ExprCallInternal,{op,..args}}) ->
+    match generate_expr_code_aux_map(ctx,bindings,{},args) => args_code then
+    generate_expr_code_infix(ctx,bindings,op,args_code);
 
 binop(Plus) -> true,24;
 binop(Minus) -> true,25;
@@ -496,11 +502,11 @@ binop(Modulus) -> true,28;
 binop(_) -> false,0;
 
 //generate_expr_code_infix(0,0,{{1,10,{1,0},"n"}},30,{{{},10,1,0},{{},10,0,1}})
-generate_expr_code_infix(fn_id,rule_id,bindings,op,{{code1,tp,src_flag1,src1},{code2,tp,src_flag2,src2}}) match binop(op) => true,machine_op ->
-    {..code1,..code2,{fn_id,rule_id,machine_op,tp,BindReg,6,src_flag1,src1,src_flag2,src2}},tp,BindReg,6;
+generate_expr_code_infix(ctx,bindings,op,{{code1,tp,src_flag1,src1},{code2,tp,src_flag2,src2}}) match binop(op) => true,machine_op ->
+    {..code1,..code2,{ctx_fnr(ctx),machine_op,tp,BindReg,6,src_flag1,src1,src_flag2,src2}},tp,BindReg,6;
 
-generate_expr_code_aux_map(fn_id,rule_id,bindings,sofar,{}) -> sofar;
-generate_expr_code_aux_map(fn_id,rule_id,bindings,sofar,{expr,..rest}) -> generate_expr_code_aux_map(fn_id,rule_id,bindings,{..sofar,{generate_expr_code_aux(fn_id,rule_id,bindings,expr)}},rest);
+generate_expr_code_aux_map(ctx,bindings,sofar,{}) -> sofar;
+generate_expr_code_aux_map(ctx,bindings,sofar,{expr,..rest}) -> generate_expr_code_aux_map(ctx,bindings,{..sofar,{generate_expr_code_aux(ctx,bindings,expr)}},rest);
 
 convert_to_binary(sofar,{}) -> sofar;
 convert_to_binary(sofar,{instr,..rest}) -> convert_to_binary({..sofar,..emit_instruction(instr)},rest);
